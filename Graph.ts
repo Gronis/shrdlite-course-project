@@ -130,27 +130,28 @@ function aStarSearch<Node> (
     timeout : number
 ) : SearchResult<Node> {
 
-    var r: SearchResult<Node> = {
-        path: [start],
-        cost: 0
-    };
-    //return r;
-
-
     var queue: PriorityQueue<Node> = { root: null };
     push(queue, start, 0, 0);
     var cheapest : QueueElement<Node> = pop(queue);
     var cameFrom: [Edge<Node>] = <any>[]; 
 
-    console.log("Start A star ");
+    console.log("Start A star");
 
     // Find goal
+    // TODO: Stop if empty queue and how does goal() handle if argument 
+    // is null?
     while(!goal(cheapest.element)){
         //console.log("Inspecting parent" + cheapest);
         var outEdges = graph.outgoingEdges(cheapest.element);
         for (var i = outEdges.length - 1; i >= 0; i--) {
             //console.log("Inspecting child" + cheapest);
             var totalCost = outEdges[i].cost + cheapest.costFromStart;
+            /*TODO: Add check to see that we do not extend a node that was extended
+            from another path already! Use cameFrom as set of extended/closed
+            nodes. Also need to look in the queue so we dont add duplicates.*/
+
+            /*Do we need to store totalCost in queue? Since we now store it in
+            cameFrom? Should be enough to store sum of total + heur? */
             push(queue, outEdges[i].to, totalCost, heuristics(outEdges[i].to));
             prettyprint(queue);
 
@@ -198,13 +199,12 @@ function aStarSearch<Node> (
     path.reverse();
 
     // A dummy search result: it just picks the first possible neighbour
-    
+
     var result : SearchResult<Node> = {
         path: path,
         cost: cheapest.costFromStart
     };
     return result;
-       
 }
 
 
