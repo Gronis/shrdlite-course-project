@@ -25,7 +25,7 @@ interface Graph<Node> {
     compareNodes : collections.ICompareFunction<Node>;
 }
 
-/** Type that reports the result of a search. */
+/** Type that reports the result of a search. */ /
 class SearchResult<Node> {
     /** The path (sequence of Nodes) found by the search algorithm. */
     path : Node[];
@@ -44,9 +44,9 @@ class PriorityQueue<T> {
   root: QueueElement<T>;
 }
 
-function push<T>(queue     : PriorityQueue<T>, 
-                 n         : T, 
-                 cost      : number, 
+function push<T>(queue     : PriorityQueue<T>,
+                 n         : T,
+                 cost      : number,
                  heuristic : number){
   var insertedNode: QueueElement<T> = {
     element: n,
@@ -100,13 +100,21 @@ function aStarSearch<Node> (
   var queue: PriorityQueue<Node>;
   push(queue, start, 0, 0);
   var cheapestNode : QueueElement<Node> = pop(queue);
-  var cameFrom: [Edge<Node>] = <any>{}; 
+  var cameFrom: [Edge<Node>] = <any>{};
 
   // Find goal
+  /*TODO: Stop if empty queue and how does goal() handle if argument is null? */
   while(!goal(cheapestNode.element)){
       var outEdges = graph.outgoingEdges(cheapestNode.element);
       for (var i = outEdges.length - 1; i >= 0; i--) {
         var totalCost = outEdges[i].cost + cheapestNode.costFromStart;
+
+        /*TODO: Add check to see that we do not extend a node that was extended
+        from another path already! Use cameFrom as set of extended/closed
+        nodes. Also need to look in the queue so we dont add duplicates.*/
+
+        /*Do we need to store totalCost in queue? Since we now store it in
+        cameFrom? Should be enough to store sum of total + heur? */
         push(queue, outEdges[i].to, totalCost, heuristics(outEdges[i].to));
 
         // Update edge with (parent -> child) with cheapest parent path
@@ -135,14 +143,14 @@ function aStarSearch<Node> (
 
   //Reconstruct path
 
-  //TODO: We need more stuff here
+  /*TODO: We need more stuff here*/
 
 
   //Stuff from here is from the old solution (Wrong)
 
 
     // A dummy search result: it just picks the first possible neighbour
-    
+
     var result : SearchResult<Node> = {
         path: [start],
         cost: 0
@@ -155,7 +163,7 @@ function aStarSearch<Node> (
         result.cost += edge.cost;
     }
     return result;
-    
+
 }
 
 
