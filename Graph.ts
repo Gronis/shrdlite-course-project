@@ -33,6 +33,47 @@ class SearchResult<Node> {
     cost : number;
 }
 
+class QueueElement<T> {
+  element: T;
+  costFromStart: number;
+  heuristic: number;
+  next: QueueElement<T>;
+}
+
+class PriorityQueue<T> {
+  root: QueueElement<T>;
+}
+
+function push<T>(queue     : PriorityQueue<T>, 
+                 n         : T, 
+                 cost      : number, 
+                 heuristic : number){
+  var insertedNode: QueueElement<T> = {
+    element: n,
+    costFromStart: cost,
+    heuristic: heuristic,
+    next: null
+  };
+  if(!queue.root){
+    queue.root = insertedNode;
+    return;
+  }
+  var current: QueueElement<T> = queue.root;
+  //Find proper location for insert
+  while(current.next != null && current.next.costFromStart + current.next.heuristic > insertedNode.costFromStart + insertedNode.heuristic){
+    current = current.next;
+  }
+  insertedNode.next = current.next;
+  current.next = insertedNode;
+}
+
+function pop<T>(queue: PriorityQueue<T>) : QueueElement<T>{
+  if (queue == null || queue.root == null) return null;
+  var cheapestNode = queue.root;
+  queue.root = queue.root.next;
+  return cheapestNode;
+}
+
 /**
 * A\* search implementation, parameterised by a `Node` type. The code
 * here is just a template; you should rewrite this function
@@ -55,7 +96,53 @@ function aStarSearch<Node> (
     heuristics : (n:Node) => number,
     timeout : number
 ) : SearchResult<Node> {
+
+  var queue: PriorityQueue<Node>;
+  push(queue, start, 0, 0);
+  var cheapestNode : QueueElement<Node> = pop(queue);
+  var cameFrom: [Edge<Node>] = <any>{}; 
+
+  // Find goal
+  while(!goal(cheapestNode.element)){
+      var outEdges = graph.outgoingEdges(cheapestNode.element);
+      for (var i = outEdges.length - 1; i >= 0; i--) {
+        var totalCost = outEdges[i].cost + cheapestNode.costFromStart;
+        push(queue, outEdges[i].to, totalCost, heuristics(outEdges[i].to));
+
+        // Update edge with (parent -> child) with cheapest parent path
+        var foundNode: boolean = false;
+        for (var i = cameFrom.length - 1; i >= 0; i--) {
+          if (cameFrom[i].to == outEdges[i].to) {
+            foundNode = true;
+            if (cameFrom[i].cost > totalCost) {
+              cameFrom[i].cost = totalCost;
+              cameFrom[i].from = cheapestNode.element;
+            }
+            else break;
+          }
+        }
+        if(!foundNode){
+          var edge: Edge<Node> {
+            from: cheapestNode.element,
+            to: cameFrom[i].to,
+            cost: totalCost
+          };
+          cameFrom.concat(edge);
+        }
+      }
+      cheapestNode = pop(queue);
+  }
+
+  //Reconstruct path
+
+  //TODO: We need more stuff here
+
+
+  //Stuff from here is from the old solution (Wrong)
+
+
     // A dummy search result: it just picks the first possible neighbour
+    
     var result : SearchResult<Node> = {
         path: [start],
         cost: 0
@@ -68,6 +155,7 @@ function aStarSearch<Node> (
         result.cost += edge.cost;
     }
     return result;
+    
 }
 
 
