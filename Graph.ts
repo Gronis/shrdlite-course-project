@@ -33,37 +33,6 @@ class SearchResult<Node> {
     cost : number;
 }
 
-//From here to aStar, this is our own code
-
-class QueueElement<T> {
-    constructor(e : T, c : number, h : number){
-      this.node = e;
-      this.costFromStart = c;
-      this.heuristic = h;
-    }
-    node: T;
-    costFromStart: number;
-    heuristic: number;
-}
-
-
-function prettyprintlist<T>(list: [T]) {
-  var output: string = "list: { ";
-  for (var i = 0; i < list.length; i++) {
-    output += (list[i]) + ", ";
-  }
-  output += " }"
-  console.log(output);
-}
-
-function prettyprintqueue<T>(queue : collections.PriorityQueue<QueueElement<T>>){
-    console.log("{ ")
-    queue.forEach(function(i : QueueElement<T>){
-      console.log(", " + i.node + " c: " + i.costFromStart);
-    });
-    console.log("}")
-}
-
 /**
 * A\* search implementation, parameterised by a `Node` type. The code
 * here is just a template; you should rewrite this function
@@ -87,35 +56,50 @@ function aStarSearch<Node> (
     timeout : number
 ) : SearchResult<Node> {
 
+    // Private help data structure for using priority queue
+    class QueueElement<T> {
+        constructor(n: T, e: number) {
+            this.node = n;
+            this.estimatedCost = e;
+        }
+        node: T;
+        estimatedCost: number;
+    }
+
+    // Comparator for priority queue
     var comparator : collections.ICompareFunction<QueueElement<Node>> = 
     function(a: QueueElement<Node>, b: QueueElement<Node>): number {
-        var cmp = a.costFromStart + a.heuristic - b.costFromStart - b.heuristic;
+        var cmp = a.estimatedCost - b.estimatedCost;
         if (cmp < 0) return 1;
         else if (cmp > 0) return -1;
         else return 0;
     };
 
-    var queue: collections.PriorityQueue<QueueElement<Node>> = new collections.PriorityQueue<QueueElement<Node>>(comparator);
-    var cameFrom: collections.Dictionary<Node, Node> = new collections.Dictionary<Node, Node>();
-    var costs: collections.Dictionary<Node, number> = new collections.Dictionary<Node, number>();
+    var queue: collections.PriorityQueue<QueueElement<Node>> = 
+        new collections.PriorityQueue<QueueElement<Node>>(comparator);
+    var cameFrom: collections.Dictionary<Node, Node> = 
+        new collections.Dictionary<Node, Node>();
+    var costs: collections.Dictionary<Node, number> = 
+        new collections.Dictionary<Node, number>();
     var visited: collections.Set<Node> = new collections.Set<Node>(); 
-    var current: QueueElement<Node> = new QueueElement(start, 0, 0);
+    var current: QueueElement<Node> = new QueueElement(start, 0);
+    costs.setValue(start, 0);
 
-    // Find goal
+    // Search for goal node
     for (var count = 0; count < timeout && !goal(current.node); count++){
         if (!visited.contains(current.node)) {
-          visited.add(current.node);
-          var children = graph.outgoingEdges(current.node);
-          for (var i = children.length - 1; i >= 0; i--) {
-            var child = children[i].to;
-            var costFromStart = children[i].cost + current.costFromStart;
-            var heuristic = heuristics(child);
-            var hasParent = cameFrom.containsKey(child);
-            var oldCostFromStart = costs.getValue(child);
+            visited.add(current.node);
+            var children = graph.outgoingEdges(current.node);
+            for (var i = children.length - 1; i >= 0; i--) {
+                var child = children[i].to;
+                var costFromStart = children[i].cost+costs.getValue(current.node);
+                var heuristic = heuristics(child);
+                var hasParent = cameFrom.containsKey(child);
+                var oldCostFromStart = costs.getValue(child);
             if (!hasParent || oldCostFromStart > costFromStart) {
-              queue.enqueue(new QueueElement(child, costFromStart, heuristic));
-              cameFrom.setValue(child, current.node);
-              costs.setValue(child, costFromStart);
+                queue.enqueue(new QueueElement(child, costFromStart+heuristic));
+                cameFrom.setValue(child, current.node);
+                costs.setValue(child, costFromStart);
             } 
           }
         }
@@ -123,11 +107,11 @@ function aStarSearch<Node> (
     }
 
     //Reconstruct path
-    var finalCost = current.costFromStart;
+    var finalCost = costs.getValue(current.node);
     var path: [Node] = <any>[];
     while(current.node != start){
-      path.push(current.node);
-      current.node = cameFrom.getValue(current.node);
+        path.push(current.node);
+        current.node = cameFrom.getValue(current.node);
     }
     path.reverse();
     var result : SearchResult<Node> = {
