@@ -86,7 +86,7 @@ function aStarSearch<Node> (
     costs.setValue(start, 0);
 
     // Search for goal node
-    for (var count = 0; count < timeout && !goal(current.node); count++){
+    while (!goal(current.node)){
         if (!visited.contains(current.node)) {
             visited.add(current.node);
             var children = graph.outgoingEdges(current.node);
