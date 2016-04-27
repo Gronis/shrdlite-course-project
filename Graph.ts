@@ -56,6 +56,14 @@ function prettyprintlist<T>(list: [T]) {
   console.log(output);
 }
 
+function prettyprintqueue<T>(queue : collections.PriorityQueue<QueueElement<T>>){
+    console.log("{ ")
+    queue.forEach(function(i : QueueElement<T>){
+      console.log(", " + i.node + " c: " + i.costFromStart);
+    });
+    console.log("}")
+}
+
 /**
 * A\* search implementation, parameterised by a `Node` type. The code
 * here is just a template; you should rewrite this function
@@ -81,18 +89,17 @@ function aStarSearch<Node> (
 
     var comparator : collections.ICompareFunction<QueueElement<Node>> = 
     function(a: QueueElement<Node>, b: QueueElement<Node>): number {
-        return a.costFromStart + a.heuristic - b.costFromStart - b.heuristic;
+        var cmp = a.costFromStart + a.heuristic - b.costFromStart - b.heuristic;
+        if (cmp < 0) return 1;
+        else if (cmp > 0) return -1;
+        else return 0;
     };
 
     var queue: collections.PriorityQueue<QueueElement<Node>> = new collections.PriorityQueue<QueueElement<Node>>(comparator);
-
-    var current: QueueElement<Node> = new QueueElement(start, 0, 0);
     var cameFrom: collections.Dictionary<Node, Node> = new collections.Dictionary<Node, Node>();
     var costs: collections.Dictionary<Node, number> = new collections.Dictionary<Node, number>();
-
     var visited: collections.Set<Node> = new collections.Set<Node>(); 
-
-    console.log("Start A*");
+    var current: QueueElement<Node> = new QueueElement(start, 0, 0);
 
     // Find goal
     for (var count = 0; count < timeout && !goal(current.node); count++){
@@ -115,17 +122,14 @@ function aStarSearch<Node> (
         current = queue.dequeue();
     }
 
-    var finalCost = current.costFromStart;
-    console.log("TotalCost: " + finalCost);
-
     //Reconstruct path
+    var finalCost = current.costFromStart;
     var path: [Node] = <any>[];
     while(current.node != start){
       path.push(current.node);
       current.node = cameFrom.getValue(current.node);
     }
     path.reverse();
-    prettyprintlist(path);
     var result : SearchResult<Node> = {
         path: path,
         cost: finalCost

@@ -200,7 +200,7 @@ function test(c: TestCase) : boolean {
 
 function runTests() : void {
     //TODO: Change back the original test json file
-    var cs = <TestCase[]>JSON.parse(fs.readFileSync('myaStarTestCases.json','utf8'));
+    var cs = <TestCase[]>JSON.parse(fs.readFileSync('aStarTestCases.json','utf8'));
     var n = 0;
     var total = cs.length;
     for (var c of cs) {
