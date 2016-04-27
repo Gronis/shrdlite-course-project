@@ -36,75 +36,24 @@ class SearchResult<Node> {
 //From here to aStar, this is our own code
 
 class QueueElement<T> {
-  element: T;
-  costFromStart: number;
-  heuristic: number;
-  next: QueueElement<T>;
+    constructor(e : T, c : number, h : number){
+      this.node = e;
+      this.costFromStart = c;
+      this.heuristic = h;
+    }
+    node: T;
+    costFromStart: number;
+    heuristic: number;
 }
 
-class PriorityQueue<T> {
-  root: QueueElement<T>;
-}
 
-function prettyprint<T>(queue : PriorityQueue<T>){
-  var current: QueueElement<T> = queue.root;
-  var output: string = "queue: { ";
-  while(current != null){
-    output += (current.costFromStart + current.heuristic) + ", ";
-    current = current.next;
+function prettyprintlist<T>(list: [T]) {
+  var output: string = "list: { ";
+  for (var i = 0; i < list.length; i++) {
+    output += (list[i]) + ", ";
   }
   output += " }"
   console.log(output);
-}
-
-function push<T>(queue     : PriorityQueue<T>, 
-                 node         : T, 
-                 cost      : number, 
-                 heuristic : number){
-    var insertedNode: QueueElement<T> = {
-        element: node,
-        costFromStart: cost,
-        heuristic: heuristic,
-        next: null
-    };
-
-    if(queue.root == null){
-        queue.root = insertedNode;
-        //console.log("pushed empty queue");
-        return;
-    }
-    var current: QueueElement<T> = queue.root;
-    //Find proper location for insert
-    while(current.next != null && current.next.costFromStart + current.next.heuristic <= insertedNode.costFromStart + insertedNode.heuristic){
-        if(node === current.next.element){
-            console.log("Cheaper path exist in list, ignoring push");
-            return;
-        }
-        current = current.next;
-    }
-    insertedNode.next = current.next;
-    current.next = insertedNode;
-    //console.log("pushed queue");
-}
-
-function pop<T>(queue: PriorityQueue<T>) : QueueElement<T>{
-    if (queue == null || queue.root == null) {
-        console.log("failed to pop queue");
-        return null;
-    }
-    var cheapestNode = queue.root;
-    queue.root = queue.root.next;
-    //console.log("poped queue");
-    return cheapestNode;
-}
-
-function prettyprintlist<T>(list : [Edge<T>]){
-    var output: string = "list: { ";
-    for (var i = 0; i < list.length; i++){
-        output += (list[i].cost) + ", ";
-    }
-    output += " }"
-    console.log(output);
 }
 
 /**
@@ -130,79 +79,56 @@ function aStarSearch<Node> (
     timeout : number
 ) : SearchResult<Node> {
 
-    var queue: PriorityQueue<Node> = { root: null };
-    push(queue, start, 0, 0);
-    var cheapest : QueueElement<Node> = pop(queue);
-    var cameFrom: [Edge<Node>] = <any>[]; 
+    var comparator : collections.ICompareFunction<QueueElement<Node>> = 
+    function(a: QueueElement<Node>, b: QueueElement<Node>): number {
+        return a.costFromStart + a.heuristic - b.costFromStart - b.heuristic;
+    };
 
-    console.log("Start A star");
+    var queue: collections.PriorityQueue<QueueElement<Node>> = new collections.PriorityQueue<QueueElement<Node>>(comparator);
+
+    var current: QueueElement<Node> = new QueueElement(start, 0, 0);
+    var cameFrom: collections.Dictionary<Node, Node> = new collections.Dictionary<Node, Node>();
+    var costs: collections.Dictionary<Node, number> = new collections.Dictionary<Node, number>();
+
+    var visited: collections.Set<Node> = new collections.Set<Node>(); 
+
+    console.log("Start A*");
 
     // Find goal
-    // TODO: Stop if empty queue and how does goal() handle if argument 
-    // is null?
-    while(!goal(cheapest.element)){
-        //console.log("Inspecting parent" + cheapest);
-        var outEdges = graph.outgoingEdges(cheapest.element);
-        for (var i = outEdges.length - 1; i >= 0; i--) {
-            //console.log("Inspecting child" + cheapest);
-            var totalCost = outEdges[i].cost + cheapest.costFromStart;
-            /*TODO: Add check to see that we do not extend a node that was extended
-            from another path already! Use cameFrom as set of extended/closed
-            nodes. Also need to look in the queue so we dont add duplicates.*/
-
-            /*Do we need to store totalCost in queue? Since we now store it in
-            cameFrom? Should be enough to store sum of total + heur? */
-            push(queue, outEdges[i].to, totalCost, heuristics(outEdges[i].to));
-            prettyprint(queue);
-
-            // Update edge with (parent -> child) with cheapest parent path
-            var foundNode: boolean = false;
-            for (var j = cameFrom.length - 1; j >= 0; j--) {
-                if (cameFrom[j].to == outEdges[i].to) {
-                    foundNode = true;
-                    if (cameFrom[j].cost > totalCost) {
-                        cameFrom[j].cost = totalCost;
-                        cameFrom[j].from = cheapest.element;
-                        //console.log("Updating child parent");
-                    }
-                else break;
-                }
-            }
-            if(!foundNode){
-                var edge: Edge<Node> = new Edge<Node>();
-                edge.from = cheapest.element;
-                edge.to = outEdges[i].to;
-                edge.cost = totalCost;
-                //console.log("Adding child parent");
-                cameFrom.push(edge);
-            }
-            prettyprintlist(cameFrom);
+    for (var count = 0; count < timeout && !goal(current.node); count++){
+        if (!visited.contains(current.node)) {
+          visited.add(current.node);
+          var children = graph.outgoingEdges(current.node);
+          for (var i = children.length - 1; i >= 0; i--) {
+            var child = children[i].to;
+            var costFromStart = children[i].cost + current.costFromStart;
+            var heuristic = heuristics(child);
+            var hasParent = cameFrom.containsKey(child);
+            var oldCostFromStart = costs.getValue(child);
+            if (!hasParent || oldCostFromStart > costFromStart) {
+              queue.enqueue(new QueueElement(child, costFromStart, heuristic));
+              cameFrom.setValue(child, current.node);
+              costs.setValue(child, costFromStart);
+            } 
+          }
         }
-        cheapest = pop(queue);
+        current = queue.dequeue();
     }
 
-    console.log("TotalCost: " + cheapest.costFromStart);
+    var finalCost = current.costFromStart;
+    console.log("TotalCost: " + finalCost);
 
     //Reconstruct path
-    var current : Node = cheapest.element;
-    var path: [Node] = <any>[current];
-    while(current != start){
-        for (var i = cameFrom.length - 1; i >= 0; i--) {
-            if (cameFrom[i].to == current) {
-                var parent = cameFrom[i].from;
-                path.concat(parent);
-                current = parent;
-                break;
-            }
-        }
+    var path: [Node] = <any>[];
+    while(current.node != start){
+      path.push(current.node);
+      current.node = cameFrom.getValue(current.node);
     }
     path.reverse();
-
-    // A dummy search result: it just picks the first possible neighbour
-
+    prettyprintlist(path);
     var result : SearchResult<Node> = {
         path: path,
-        cost: cheapest.costFromStart
+        cost: finalCost
     };
     return result;
 }
