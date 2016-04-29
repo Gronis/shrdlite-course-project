@@ -89,9 +89,6 @@ function aStarSearch<Node> (
     // Search for goal node
     while (!goal(current.node)){
         var tNow = Date.now();
-        if( (tNow - startTime) > (timeout * 1000) || queue.isEmpty() ) {
-          return null;
-        }
         if (!visited.contains(current.node)) {
             visited.add(current.node);
             var children = graph.outgoingEdges(current.node);
@@ -107,6 +104,9 @@ function aStarSearch<Node> (
                 costs.setValue(child, costFromStart);
             }
           }
+        }
+        if ((tNow - startTime) > (timeout * 1000) || queue.isEmpty()) {
+          return null;
         }
         current = queue.dequeue();
     }
