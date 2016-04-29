@@ -56,8 +56,6 @@ function aStarSearch<Node> (
     timeout : number
 ) : SearchResult<Node> {
 
-    var startTime = Date.now();
-
     // Private help data structure for using priority queue
     class QueueElement<T> {
         constructor(n: T, e: number) {
@@ -77,6 +75,7 @@ function aStarSearch<Node> (
         else return 0;
     };
 
+    var startTime = Date.now();
     var queue: collections.PriorityQueue<QueueElement<Node>> =
         new collections.PriorityQueue<QueueElement<Node>>(comparator);
     var cameFrom: collections.Dictionary<Node, Node> =
@@ -91,7 +90,6 @@ function aStarSearch<Node> (
     while (!goal(current.node)){
         var tNow = Date.now();
         if( (tNow - startTime) > (timeout * 1000) ) {
-          /*TODO Return something else? */
           return null;
         }
         if (!visited.contains(current.node)) {
