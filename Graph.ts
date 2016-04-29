@@ -56,6 +56,8 @@ function aStarSearch<Node> (
     timeout : number
 ) : SearchResult<Node> {
 
+    var startTime = Date.now();
+
     // Private help data structure for using priority queue
     class QueueElement<T> {
         constructor(n: T, e: number) {
@@ -67,7 +69,7 @@ function aStarSearch<Node> (
     }
 
     // Comparator for priority queue
-    var comparator : collections.ICompareFunction<QueueElement<Node>> = 
+    var comparator : collections.ICompareFunction<QueueElement<Node>> =
     function(a: QueueElement<Node>, b: QueueElement<Node>): number {
         var cmp = a.estimatedCost - b.estimatedCost;
         if (cmp < 0) return 1;
@@ -75,18 +77,23 @@ function aStarSearch<Node> (
         else return 0;
     };
 
-    var queue: collections.PriorityQueue<QueueElement<Node>> = 
+    var queue: collections.PriorityQueue<QueueElement<Node>> =
         new collections.PriorityQueue<QueueElement<Node>>(comparator);
-    var cameFrom: collections.Dictionary<Node, Node> = 
+    var cameFrom: collections.Dictionary<Node, Node> =
         new collections.Dictionary<Node, Node>();
-    var costs: collections.Dictionary<Node, number> = 
+    var costs: collections.Dictionary<Node, number> =
         new collections.Dictionary<Node, number>();
-    var visited: collections.Set<Node> = new collections.Set<Node>(); 
+    var visited: collections.Set<Node> = new collections.Set<Node>();
     var current: QueueElement<Node> = new QueueElement(start, 0);
     costs.setValue(start, 0);
 
     // Search for goal node
     while (!goal(current.node)){
+        var tNow = Date.now();
+        if( (tNow - startTime) > (timeout * 1000) ) {
+          /*TODO Return something else? */
+          return null;
+        }
         if (!visited.contains(current.node)) {
             visited.add(current.node);
             var children = graph.outgoingEdges(current.node);
@@ -100,7 +107,7 @@ function aStarSearch<Node> (
                 queue.enqueue(new QueueElement(child, costFromStart+heuristic));
                 cameFrom.setValue(child, current.node);
                 costs.setValue(child, costFromStart);
-            } 
+            }
           }
         }
         current = queue.dequeue();
@@ -120,5 +127,3 @@ function aStarSearch<Node> (
     };
     return result;
 }
-
-
