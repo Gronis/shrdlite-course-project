@@ -89,7 +89,7 @@ function aStarSearch<Node> (
     // Search for goal node
     while (!goal(current.node)){
         var tNow = Date.now();
-        if( (tNow - startTime) > (timeout * 1000) ) {
+        if( (tNow - startTime) > (timeout * 1000) || queue.isEmpty() ) {
           return null;
         }
         if (!visited.contains(current.node)) {
