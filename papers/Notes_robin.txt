@@ -1,0 +1,9 @@
+The thesis is really good overall, and you have done a good job with it. These are the things you could change to make it even better:
+
+Section 2.4 - Eugine Goostman: Could you provide a date this bot was released/created. "Recently" is a little bit too vague.
+
+Section 2.5 - Testing Goostman line 2: "use information given to it" sounds informal and unspecified. Perhaps something like "use information providied from the chat" would sound better.
+
+Section 3.3: "conversing" -> "conversation". "This query may have solution as follows" -> reformulate. Also this section have a lot of facts and references to be part of the discussion.
+
+Section 3.4 - last paragraph: "be able to sort out what is going on", hard to understand what you mean, maybe reformulate to something like this: "be able to intrepret the scentence correctly based on the meaning of the words".
