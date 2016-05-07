@@ -1,0 +1,43 @@
+The essay is very well written, both in terms of language and readability. We could not find 
+any major structural issues, but here is a list of comments that you might consider to improve
+the essay further.
+
+-- Abstract
+
+* The abstract summarizes the essay nicely without being too extensive.
+* The sentence starting with "The conclusion" might be a bit too long.
+
+-- 1 Introduction
+
+* The first sentence does not seem to be connected to the following sentences.
+
+-- 1.1 Defining Intelligence
+
+* "in this essay is one from [1]" - is a bit confusing.
+* "it is also seen" - A bit unclear what "it" refers to. Might be a good idea to
+specify further.
+* The section ends a bit abruptly. Since it seems like you are arguing that defining
+intelligence is complex, a small conclusion might be relevant here to make it more
+clear for the reader.
+
+-- Eliza
+
+* "The program detects if any of a given list of keywords" - Might need rephrasing.
+* It had the benefit of being able to respond to statements in an “easy” way -
+not quite sure what you mean by "easy".
+* It has been enhanced in certain ways, however. - Might need rephrasing.
+
+-- Testing Goostman
+
+* "correctly answer" - answer correctly?
+
+-- 3.4 Shortcomings of and Extensions to the Turing Test
+
+* "creating a chat bot that can fool humans but it is not
+ really the same thing as creating artificial intelligence."
+ - Fooling someone takes intelligence right? Seems like this
+ conclusion is not motivated from the previous sections.
+ 
+ -- Conclusion
+ 
+ * Very good and gets right to the point.
