@@ -1,0 +1,91 @@
+Dear Joakim,
+
+Your submission for the course TIN 173 (Artificial Intelligence), titled Autonomous Cars - What to expect and when? has been
+reviewed. Below in this mail, you should find 3 reviews for your submission. Please make
+sure to address all the changes suggested by the reviewers and submit a revised draft by
+21st May. That version will be graded towards the points for the essay.
+
+If conflicting suggestions are found between multiple reviews, feel free to discuss this
+during your supervision.
+
+
+----------------------- REVIEW 1 ---------------------
+PAPER: 13
+TITLE: Autonomous Cars - What to expect and when?
+AUTHORS: Joakim Karlsson
+
+
+----------- OVERALL EVALUATION -----------
+The Essay give a brief overview of the history of autonomous vehicles, like course stabilization of sailing boats and autopilot functions in airplanes. After a description of the current state-of-the-art of autonomous cars, the essay continue to discuss how autonomous driving may affect the safety, congestion, and environmental impact of road traffic, as well as how it may require increased software security of the car.
+
+The essay is easy to read,with a clear structure and a sound argumentation. The quality and use of references are overall good. In the very end of Section 1, the sentences reads very much like marketing language from Volvo regarding their autonomous car plans, and it could be improved by clearly write that this is Volvo's view, and not the authors. In Section 3.1, the very last sentence contain statistics which probably come from a source that need to be referenced.
+
+The authors argue that the improvements of the car may lead to decreased fuel consumption and decreased traffic congestion, provided that the traffic stays at the current levels. They also argue that the decrease in cost of going by car and the possibility of doing other things besides driving, may increase the amount of car travel and thus the overall traffic. It may be interesting to also include other vehicles, like buses or trains, in the discussion and look at how transportation of people may change when transportation is a (semi-public) service and not tied to owning a car. If there is autonomous cars carrying 5 persons, and autonomous buses carrying 50 persons, then the cheapest travel may be a combination of those, perhaps.
+
+The authors argue that autonomous cars may, eventually, significantly improve the safety of the cars, by avoiding the many crashes caused by human error. Even when the autonomous driving is safer than humans, they will, surely, also have flaws and make errors. One interesting aspect of car manufacturers taking responsibility for the safety, as the authors discuss in the essay, is that someone (the manufacturer) can be sued for large sums, and the safety of passengers may be much higher valued and prioritized in a design phase of a car.
+
+
+----------------------- REVIEW 2 ---------------------
+PAPER: 13
+TITLE: Autonomous Cars - What to expect and when?
+AUTHORS: Joakim Karlsson
+
+
+----------- OVERALL EVALUATION -----------
+(Revised by John: Contents of attached PDF pasted below)
+
+The subject of autonomous cars is a broad and complex one, including many sub­subjects
+such as artificial intelligence, the environment and ethics, to name but a few. This article
+manages to give a comprehensive picture of the issues involved, while at the same time
+being clear and self­contained. Furthermore it succeeds in problematizing the issues
+involved with arguments from both sides of the fence. It is made clear that no one knows
+what will happen with some of these issues. Like congestion, for instance, where the jury’s
+out on whether autonomous cars will ease the problem or in the end contribute to it
+worsening.
+
+In Abstract, you present the topic with a background and a research question that you follow
+quite well in the rest of the article. However, you give very little attention to answering the
+question of “Why are autonomous cars not yet available on the market?”, while most of the
+article is about various societal impacts of autonomous cars. Most of the content in this
+section should probably also be moved into an introduction, keeping the “abstract” as a
+summary of the article. Also, you promise a brief history of autonomous cars, but the section
+contains mostly information about other types of vehicles. Perhaps this could be changed to
+“autonomous vehicles”.
+
+In the section “Current State” you bring up several very interesting actors working with
+autonomous cars today, such as Tesla and Volvo. You also bring up the different levels of
+automation. It would be interesting if you could present this earlier, and talk about what
+different levels the different actors has achieved. Also, the paragraphs about sensors seems
+oddly out of place. It has a very different level of technicality then the rest of the article, and it
+does not seems to connect to the rest of it.
+
+One thing that seems missing in the article is the Artificial Intelligence angle. In the writing
+guidelines can be read: “The essay should end with a discussion and conclusion that relate
+the significance and implications of the findings to the context of Artificial Intelligence”. It
+seems that while the implications for a lot of different fields are mentioned, there could be
+more anchoring the article in an Artificial Intelligence context.
+
+All in all the article is well written and well problematized, with lots of interesting points. The
+reading opened up for many interesting lines of thought on the cars of the future.
+
+
+----------------------- REVIEW 3 ---------------------
+PAPER: 13
+TITLE: Autonomous Cars - What to expect and when?
+AUTHORS: Joakim Karlsson
+
+
+----------- OVERALL EVALUATION -----------
+The essay provides an introduction to autonomous vehicles, presenting a history of the subject and reviewing different approaches, focusing on their impact on safety, congestion and the environment. The authors analyse the opportunities and challenges related with the widespread adoption of this technology, and suggest ways in which our society might be affected by it.
+
+This piece is well-written and cohesive, and the presentation of the material is easy to follow. It is mostly self-contained and makes good use of references and citations, so my overall evaluation is that it is a good essay that is interesting and enjoyable to read.
+
+Some points to improve:
+
+* The abstract claims the article will discuss why cars are not yet available on the market; either remove this claim or expand the discussion to answer this question.
+
+* Section 3, this sentence seems incomplete: "While the overall congestion reduction..."
+
+* Section 3, subsection 3.1, it would be good to cite the source stating that over 39% of roadway deaths in the U.S. involved alcohol. Maybe it is the same as the previous number (BTS, 2013)?
+
+* Typos and other minor stuff to check: "accuary", "sceptic" -> "sceptical", "adverse of effect" -> "adverse effect", "used more effective" -> "used more effectively", "waster" -> "wasted", "companies does not decide" -> "... do not decide ...", "harder than update" -> "harder than updating".
