@@ -117,22 +117,104 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             {polarity: true, relation: "holding", args: [b]}
         ]];
 
-        var possibleTargets = new collections.LinkedList();
-        var tarCon = cmd.entity.object;
-        for (var i = objects.length - 1; i >= 0; i--) {
-          var id = objects[i];
-          var obj = state.objects[id];
-          if ((tarCon.color == null     || tarCon.color == obj.color) &&
-              (tarCon.size == null      || tarCon.size == obj.size) &&
-              (tarCon.form == "anyform" || tarCon.form == obj.form)){
-            possibleTargets.add(id);
-          }
-        }
-        for (var i = possibleTargets.size() - 1; i >= 0; i--) {
-          console.log(possibleTargets.elementAtIndex(i));
+        var possibleTargets = matchObject(objects, cmd.entity.object, state);
+        for (var i = possibleTargets.length - 1; i >= 0; i--) {
+          console.log(state.objects[possibleTargets[i]]);
         }
         return interpretation;
     }
+
+    function matchObject(objects : string[], target : Parser.Object, state: WorldState) : string[]{
+        var possibleTargets : string[] = [];
+        console.log("calling matchObj with: " + objects);
+        if(target.object != undefined ){
+          var tmp = matchObject(objects, target.object, state);
+          console.log("Matching: " + tmp);
+          for (var j = 0; j < tmp.length; j++){
+              if(checkLocation(tmp[j], target.location, state)){
+                possibleTargets.push(tmp[j]);
+              }
+          }
+        } else {
+          for (var i = objects.length - 1; i >= 0; i--) {
+            var id = objects[i];
+            var obj = state.objects[id];
+            if ((target.color == null || target.color == obj.color) &&
+              (target.size == null || target.size == obj.size) &&
+              (target.form == "anyform" || target.form == obj.form)) {
+              possibleTargets.push(id);
+            }
+          }
+        }
+        return possibleTargets;
+    }
+
+    function checkLocation(object : string, location : Parser.Location, state: WorldState) : boolean{
+      console.log("Checking location: " + location + " with: " + object);
+      var stacks = state.stacks;
+      var objectsToCheck : string[] = [];
+      var stackIndex = findStack(object, state);
+      var stack = stacks[stackIndex];
+      var height = findHeight(object, stack);
+      switch(location.relation){
+          case "leftof":
+              for (var i = stackIndex + 1; i < stacks.length; i++) {
+                objectsToCheck = objectsToCheck.concat(stacks[i]);
+              }
+              break;
+          case "rightof":
+              for (var i = 0; i < stackIndex; i++){
+                objectsToCheck = objectsToCheck.concat(stacks[i]);
+              }
+              break;
+          case "inside":
+              //TODO break if not a box
+          case "ontop":
+              if(height > 0){
+                objectsToCheck.push(stack[height - 1]);
+              }
+              break;
+          case "under":
+              for (var i = height + 1; i < stack.length; i++) {
+                objectsToCheck.push(stack[i]);
+              }
+              break;
+          case "beside":
+              if(stackIndex > 0){
+                objectsToCheck = objectsToCheck.concat(stacks[stackIndex - 1]);
+              }
+              if (stackIndex < stacks.length - 1) {
+                objectsToCheck = objectsToCheck.concat(stacks[stackIndex + 1]);
+              }
+              break;
+          case "above":
+              for (var i = 0; i < height; i++) {
+                objectsToCheck.push(stack[i]);
+              }
+              break;
+      }
+      console.log("checking:" + objectsToCheck);
+      return matchObject(objectsToCheck, location.entity.object, state).length > 0;
+    }
+
+    function findHeight(object: string, stack: Stack) : number{
+      for (var j = 0; j < stack.length; j++) {
+        if (stack[j] == object) return j;
+      }
+      return null;
+    }
+
+    function findStack(object : string, state: WorldState) : number{
+        for (var i = 0; i < state.stacks.length; i++){
+          var stack = state.stacks[i];
+          for (var j = 0; j < stack.length; j++){
+            if (stack[j] == object) return i;
+          }
+        }
+        return null;
+    }
+
+
 
 }
 
