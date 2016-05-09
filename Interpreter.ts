@@ -107,19 +107,40 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
      * @returns A list of list of Literal, representing a formula in disjunctive normal form (disjunction of conjunctions). See the dummy interpetation returned in the code for an example, which means ontop(a,floor) AND holding(b).
      */
     function interpretCommand(cmd : Parser.Command, state : WorldState) : DNFFormula {
-        // This returns a dummy interpretation involving two random objects in the world
         var objects :string[] = Array.prototype.concat.apply([], state.stacks);
-        var a : string = objects[Math.floor(Math.random() * objects.length)];
-        var b : string = objects[Math.floor(Math.random() * objects.length)];
-        var interpretation : DNFFormula = [[
-            {polarity: true, relation: "ontop", args: [a, "floor"]}
-        ],[
-            {polarity: true, relation: "holding", args: [b]}
-        ]];
+        var interpretation: DNFFormula = [];
 
-        var possibleTargets = matchObject(objects, cmd.entity.object, state);
-        for (var i = possibleTargets.length - 1; i >= 0; i--) {
-          console.log(state.objects[possibleTargets[i]]);
+        for (var i = 0; i < objects.length; i++){
+          console.log(objects[i])
+          console.log(state.objects[objects[i]]);
+        }
+
+        if(cmd.entity == undefined){
+          var targetObj = state.holding;
+          var targetLocations = matchObject(objects, cmd.location.entity.object, state);
+          for (var j = targetLocations.length - 1; j >= 0; j--) {
+              var targetLoc = targetLocations[j];
+              var lit: Literal = { polarity: true, relation: cmd.location.relation, args: [targetObj, targetLoc] };
+              interpretation.push([lit]);
+          }
+        } else if(cmd.location == undefined){
+          var possibleTargets = matchObject(objects, cmd.entity.object, state);
+          for (var i = possibleTargets.length - 1; i >= 0; i--) {
+            var targetObj = possibleTargets[i];
+            var lit: Literal = { polarity: true, relation: "holding", args: [targetObj] };
+            interpretation.push([lit]);
+          }
+        } else{
+          var possibleTargets = matchObject(objects, cmd.entity.object, state);
+          var targetLocations = matchObject(objects, cmd.location.entity.object, state);
+          for (var i = possibleTargets.length - 1; i >= 0; i--) {
+            var targetObj = possibleTargets[i];
+            for (var j = targetLocations.length - 1; j >= 0; j--) {
+              var targetLoc = targetLocations[j];
+              var lit: Literal = { polarity: true, relation: cmd.location.relation, args: [targetObj, targetLoc] };
+              interpretation.push([lit]);
+            }
+          }
         }
         return interpretation;
     }
