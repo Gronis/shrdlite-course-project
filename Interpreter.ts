@@ -149,15 +149,17 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             var targetObj = possibleTargets[i];
             for (var j = targetLocations.length - 1; j >= 0; j--) {
               var targetLoc = targetLocations[j];
-              console.log("target loc " + j + ": " + targetLoc);
-              if(targetObj != targetLoc) {
+              if(targetObj != targetLoc && fullfilsPhysicalLaws(targetObj, targetLoc,cmd.location.relation,state)) {
+
+                  console.log("target obj: " + targetObj + " target loc " + j + ": " + targetLoc);
                 var lit: Literal = { polarity: true, relation: cmd.location.relation, args: [targetObj, targetLoc] };
                 interpretation.push([lit]);
               }
             }
           }
         }
-        console.log("stuff: " + interpretation);
+        console.log(interpretation.map((literals) => literals.map(Interpreter.stringifyLiteral).sort().join(" & ")).sort().join(" | "));
+        //console.log(interpretation);
         return interpretation;
     }
 
@@ -176,12 +178,13 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
           for (var i = 0; i < objects.length; i++) {
             var id = objects[i];
             console.log("Matching " + id + " to " + target.form);
-            if(id == "floor" && target.form == "floor") {
-              possibleTargets.push("floor");
-              console.log("Mid pos targets: " + possibleTargets)
-              return possibleTargets;
-            }
-            if(id != "floor") {
+            if(id == "floor") {
+                if (target.form == "floor"){
+                    possibleTargets.push("floor");
+                    console.log("Mid pos targets: " + possibleTargets)
+                    return possibleTargets;
+                }
+            } else {
               var obj = state.objects[id];
               if ((((target.color == null || target.color == obj.color) &&
                 (target.size == null || target.size == obj.size) &&
@@ -219,13 +222,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               break;
           case "inside":
               if(height > 0){
-                var posBox = state.objects[stack[height - 1]];
-                var size = posBox.size;
-                if(posBox.form == "box" &&
-                  (object.form != "pyramid" || object.form != "plank") &&
-                  ((size == "small" && object.size != "large") || (size == "large" && object.form != "box"))) {
-                    objectsToCheck.push(stack[height - 1]);
-                }
+                objectsToCheck.push(stack[height - 1]);
               }
               break;
           case "ontop":
@@ -255,7 +252,13 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               break;
       }
       console.log("Objects to check:" + objectsToCheck);
-      return matchObject(objectsToCheck, location.entity.object, state).length > 0;
+      var objs = matchObject(objectsToCheck, location.entity.object, state);
+      for (var i = objs.length - 1; i >= 0; i--) {
+          //if (fullfilsPhysicalLaws(obj, objs[i], location.relation, state)){
+              return true;
+          //}
+      }
+      return false;
     }
 
     function findHeight(object: string, stack: Stack) : number{
@@ -273,5 +276,56 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
           }
         }
         return null;
+    }
+
+    function fullfilsPhysicalLaws(objLabel1 : string, objLabel2 : string, relation : string, state : WorldState) : boolean {
+        var object1: ObjectDefinition = state.objects[objLabel1];
+        var object2: ObjectDefinition = state.objects[objLabel2];
+        var f1 = object1.form;
+        var f2 = object2.form;
+        var s1 = object1.size;
+        var s2 = object2.size;
+        if (f2 == undefined) f2 = objLabel2;
+        var result = true;
+        switch (relation) {
+            case "inside":
+                if (f2 != "box")
+                    result = false;
+                if ((f1 == "box" || f1 == "pyramid" || f1 == "plank") &&
+                    (s2 == s1 || s2 == "small"))
+                    result = false;
+                if (s2 == "small" && s1 == "large")
+                    result = false;
+                if(!result){
+                    console.log(objLabel1 + " cannot be inside " + objLabel2);
+                }
+                break;
+            case "ontop":
+                if (s2 == "small" && s1 == "large")
+                    result = false;
+                if (f2 == "ball")
+                    result = false;
+                if (f1 == "ball" && (f2 != "floor" || f2 != "box"))
+                    result = false;
+                if (s1 == "small" && f1 == "box" && s2 == "small" &&
+                    (f2 == "brick" || f2 == "pyramid"))
+                    result = false;
+                if (s1 == "large" && f1 == "box" &&
+                    s2 == "large" && f2 == "pyramid")
+                    result = false;
+                if (!result) {
+                    console.log(objLabel1 + " cannot be on top " + objLabel2);
+                }
+                break;
+            case "under":
+                if (f1 == "ball")
+                    result = false;
+                break;
+            case "above":
+                if (f2 == "ball")
+                    result = false;
+                break;
+        }
+        return result;
     }
 }
