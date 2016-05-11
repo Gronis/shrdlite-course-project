@@ -107,71 +107,129 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
      * @returns A list of list of Literal, representing a formula in disjunctive normal form (disjunction of conjunctions). See the dummy interpetation returned in the code for an example, which means ontop(a,floor) AND holding(b).
      */
     function interpretCommand(cmd : Parser.Command, state : WorldState) : DNFFormula {
-        var objects :string[] = Array.prototype.concat.apply([], state.stacks);
-        var interpretation: DNFFormula = [];
+        var labels = Array.prototype.concat.apply(["floor"], state.stacks);
+        var movableLabels : string[] = [];
+        var relationLables : string[] = [];
+        var putdown = cmd.entity == undefined;
+        var pickup = cmd.location == undefined;
+        var relation = pickup? "holding" : cmd.location.relation;
 
-        for (var i = 0; i < objects.length; i++){
-          console.log(objects[i])
-          console.log(state.objects[objects[i]]);
-        }
+        var getRelatedLabels = function() {
+            return matchObject(labels, cmd.location.entity.object, state);
+        };
+        var getMovingLables = function() {
+            return matchObject(labels, cmd.entity.object, state);
+        };
 
-        if(cmd.entity == undefined){
-          var targetObj = state.holding;
-          var targetLocations = matchObject(objects, cmd.location.entity.object, state);
-          for (var j = targetLocations.length - 1; j >= 0; j--) {
-              var targetLoc = targetLocations[j];
-              var lit: Literal = { polarity: true, relation: cmd.location.relation, args: [targetObj, targetLoc] };
-              interpretation.push([lit]);
-          }
-        } else if(cmd.location == undefined){
-          var possibleTargets = matchObject(objects, cmd.entity.object, state);
-          for (var i = possibleTargets.length - 1; i >= 0; i--) {
-            var targetObj = possibleTargets[i];
-            var lit: Literal = { polarity: true, relation: "holding", args: [targetObj] };
-            interpretation.push([lit]);
-          }
+        logLabels(labels, state);
+
+        if(putdown){
+            movableLabels = [state.holding];
+            relationLables = getRelatedLabels();
+        } else if(pickup){
+            movableLabels = getMovingLables();
         } else{
-          var possibleTargets = matchObject(objects, cmd.entity.object, state);
-          var targetLocations = matchObject(objects, cmd.location.entity.object, state);
-          for (var i = possibleTargets.length - 1; i >= 0; i--) {
-            var targetObj = possibleTargets[i];
-            for (var j = targetLocations.length - 1; j >= 0; j--) {
-              var targetLoc = targetLocations[j];
-              var lit: Literal = { polarity: true, relation: cmd.location.relation, args: [targetObj, targetLoc] };
-              interpretation.push([lit]);
-            }
-          }
+            movableLabels = getMovingLables()
+            relationLables = getRelatedLabels();
         }
-        return interpretation;
+        return getDNFFormula(movableLabels, relationLables, relation, state);
     }
 
-    function matchObject(objects : string[], target : Parser.Object, state: WorldState) : string[]{
+    function getDNFFormula(movableLabels: string[],
+                           relatedLabels : string[],
+                           relation      : string,
+                           state         : WorldState) : DNFFormula {
+        var interpretation: DNFFormula = [];
+        //Cannot move floor
+        movableLabels = movableLabels.filter((label) => label != "floor");
+        function push(args : string[]){
+            var lit: Literal = {
+                polarity: true,
+                relation: relation,
+                args: args
+            };
+            interpretation.push([lit]);
+        }
+
+        console.log("Formula from: " + movableLabels + ", " + relatedLabels);
+
+        for (var i = movableLabels.length - 1; i >= 0; i--) {
+            var ml = movableLabels[i];
+            if (relation == "holding") {
+                push([ml]);
+            }
+            else for (var j = relatedLabels.length - 1; j >= 0; j--) {
+                var rl = relatedLabels[j];
+                if (isPhysicallyCorrect(ml, rl, relation, state)){
+                    push([ml, rl]);
+                }
+            }
+        }
+
+        if (interpretation.length == 0) {
+            console.log("Returning empty formula");
+            return null;
+        }
+        else {
+            console.log("Returning formula: " + interpretation.map((literals)=>
+                literals.map(Interpreter.stringifyLiteral)
+                    .sort()
+                    .join(" & "))
+                    .sort()
+                    .join(" | "));
+            return interpretation;
+        }
+    }
+
+    function logLabels(labels: string[], state : WorldState) : void{
+        for (var i = 0; i < labels.length; i++) {
+            console.log(labels[i])
+            console.log(state.objects[labels[i]]);
+        }
+    }
+
+    function getFloor(): ObjectDefinition {
+        return {
+            color: null,
+            size: null,
+            form: "floor"
+        };
+    }
+
+    function matchObject(lables : string[], target : Parser.Object, state: WorldState) : string[]{
         var possibleTargets : string[] = [];
-        console.log("calling matchObj with: " + objects);
-        if(target.object != undefined ){
-          var tmp = matchObject(objects, target.object, state);
-          console.log("Matching: " + tmp);
-          for (var j = 0; j < tmp.length; j++){
-              if(checkLocation(tmp[j], target.location, state)){
-                possibleTargets.push(tmp[j]);
-              }
-          }
-        } else {
-          for (var i = objects.length - 1; i >= 0; i--) {
-            var id = objects[i];
-            var obj = state.objects[id];
-            if ((target.color == null || target.color == obj.color) &&
-              (target.size == null || target.size == obj.size) &&
-              (target.form == "anyform" || target.form == obj.form)) {
-              possibleTargets.push(id);
+        var continueRecursivly = target.object != undefined;
+
+        console.log("Matching with: " + lables);
+
+        if(continueRecursivly){
+            var matchingObjs = matchObject(lables, target.object, state);
+            console.log("Found matches: " + matchingObjs);
+            for (var j = 0; j < matchingObjs.length; j++){
+                var matchingObj = matchingObjs[j];
+                if(checkRelation(matchingObj, target.location, state)){
+                    possibleTargets.push(matchingObj);
+                }
+            }
+        } else { //check object specification
+          for (var i = lables.length - 1; i >= 0; i--) {
+            var label  = lables[i];
+            var object = label == "floor"? getFloor() : state.objects[label];
+            if ((target.color == null      || target.color == object.color) &&
+                (target.size  == null      || target.size  == object.size)  &&
+                (target.form  == "anyform" || target.form  == object.form)) {
+                console.log("Found match: " + label);
+                possibleTargets.push(label);
             }
           }
         }
         return possibleTargets;
     }
 
-    function checkLocation(object : string, location : Parser.Location, state: WorldState) : boolean{
-      console.log("Checking location: " + location + " with: " + object);
+    function checkRelation(object : string, location : Parser.Location, state: WorldState) : boolean{
+      console.log("Checking relation: ")
+      console.log(location)
+      console.log("with: " + object);
       var stacks = state.stacks;
       var objectsToCheck : string[] = [];
       var stackIndex = findStack(object, state);
@@ -189,15 +247,20 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               }
               break;
           case "inside":
-              //TODO break if not a box
+              if (height > 0 && state.objects[stack[height-1]].form == "box") {
+                  objectsToCheck.push(stack[height - 1]);
+              }
+              break;
           case "ontop":
               if(height > 0){
-                objectsToCheck.push(stack[height - 1]);
+                  objectsToCheck.push(stack[height - 1]);
+              } else if(location.entity.object.form == "floor"){
+                  objectsToCheck.push("floor");
               }
               break;
           case "under":
               for (var i = height + 1; i < stack.length; i++) {
-                objectsToCheck.push(stack[i]);
+                  objectsToCheck.push(stack[i]);
               }
               break;
           case "beside":
@@ -214,8 +277,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               }
               break;
       }
-      console.log("checking:" + objectsToCheck);
-      return matchObject(objectsToCheck, location.entity.object, state).length > 0;
+      return matchObject(objectsToCheck,location.entity.object,state).length>0;
     }
 
     function findHeight(object: string, stack: Stack) : number{
@@ -235,7 +297,57 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         return null;
     }
 
-
-
+    function isPhysicallyCorrect(label1: string,
+                                 label2: string,
+                                 relation: string,
+                                 state: WorldState): boolean {
+        var object1 = label1 == "floor"? getFloor() : state.objects[label1];
+        var object2 = label2 == "floor"? getFloor() : state.objects[label2];
+        var f1 = object1.form;
+        var f2 = object2.form;
+        var s1 = object1.size;
+        var s2 = object2.size;
+        var result = label1 != label2;
+        switch (relation) {
+            case "inside":
+                if (f2 != "box")
+                    result = false;
+                if ((f1 == "box" || f1 == "pyramid" || f1 == "plank") &&
+                    (s2 == s1 || s2 == "small"))
+                    result = false;
+                if (s2 == "small" && s1 == "large")
+                    result = false;
+                if (!result) {
+                    console.log(label1 + " cannot be inside " + label2);
+                }
+                break;
+            case "ontop":
+                if (s2 == "small" && s1 == "large")
+                    result = false;
+                if (f2 == "ball")
+                    result = false;
+                if (f1 == "ball" && f2 != "floor" && f2 != "box")
+                    result = false;
+                if (s1 == "small" && f1 == "box" && s2 == "small" &&
+                    (f2 == "brick" || f2 == "pyramid"))
+                    result = false;
+                if (s1 == "large" && f1 == "box" &&
+                    s2 == "large" && f2 == "pyramid")
+                    result = false;
+                if (!result) {
+                    console.log(label1 + " cannot be on top of " + label2);
+                }
+                break;
+            case "under":
+                if (f1 == "ball")
+                    result = false;
+                break;
+            case "above":
+                if (f2 == "ball")
+                    result = false;
+                break;
+        }
+        return result;
+    }
 }
 
