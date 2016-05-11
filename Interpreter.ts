@@ -115,6 +115,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
           console.log(state.objects[objects[i]]);
         }
 
+        objects.push("floor");
+
         if(cmd.entity == undefined){
           var targetObj = state.holding;
           var targetLocations = matchObject(objects, cmd.location.entity.object, state);
@@ -124,6 +126,9 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               interpretation.push([lit]);
           }
         } else if(cmd.location == undefined){
+          if(cmd.entity.object.object == undefined && cmd.entity.object.form == "floor") {
+            return null;
+          }
           var possibleTargets = matchObject(objects, cmd.entity.object, state);
           for (var i = possibleTargets.length - 1; i >= 0; i--) {
             var targetObj = possibleTargets[i];
@@ -131,52 +136,76 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             interpretation.push([lit]);
           }
         } else{
+          if(cmd.entity.object.object == undefined && cmd.entity.object.form == "floor") {
+            return null;
+          }
           var possibleTargets = matchObject(objects, cmd.entity.object, state);
           var targetLocations = matchObject(objects, cmd.location.entity.object, state);
+          if(possibleTargets.length == 0 || targetLocations.length == 0) {
+            console.log("Return: null");
+            return null;
+          }
           for (var i = possibleTargets.length - 1; i >= 0; i--) {
             var targetObj = possibleTargets[i];
             for (var j = targetLocations.length - 1; j >= 0; j--) {
               var targetLoc = targetLocations[j];
-              var lit: Literal = { polarity: true, relation: cmd.location.relation, args: [targetObj, targetLoc] };
-              interpretation.push([lit]);
+              console.log("target loc " + j + ": " + targetLoc);
+              if(targetObj != targetLoc) {
+                var lit: Literal = { polarity: true, relation: cmd.location.relation, args: [targetObj, targetLoc] };
+                interpretation.push([lit]);
+              }
             }
           }
         }
+        console.log("stuff: " + interpretation);
         return interpretation;
     }
 
     function matchObject(objects : string[], target : Parser.Object, state: WorldState) : string[]{
         var possibleTargets : string[] = [];
-        console.log("calling matchObj with: " + objects);
+        console.log("Matching Obj: {" + target.object + ", " + target.size+ ", " + target.color+ ", " + target.form + "} [" + objects + "]");
         if(target.object != undefined ){
           var tmp = matchObject(objects, target.object, state);
-          console.log("Matching: " + tmp);
+          console.log("Found matching: " + tmp);
           for (var j = 0; j < tmp.length; j++){
               if(checkLocation(tmp[j], target.location, state)){
                 possibleTargets.push(tmp[j]);
               }
           }
         } else {
-          for (var i = objects.length - 1; i >= 0; i--) {
+          for (var i = 0; i < objects.length; i++) {
             var id = objects[i];
-            var obj = state.objects[id];
-            if ((target.color == null || target.color == obj.color) &&
-              (target.size == null || target.size == obj.size) &&
-              (target.form == "anyform" || target.form == obj.form)) {
-              possibleTargets.push(id);
+            console.log("Matching " + id + " to " + target.form);
+            if(id == "floor" && target.form == "floor") {
+              possibleTargets.push("floor");
+              console.log("Mid pos targets: " + possibleTargets)
+              return possibleTargets;
+            }
+            if(id != "floor") {
+              var obj = state.objects[id];
+              if ((((target.color == null || target.color == obj.color) &&
+                (target.size == null || target.size == obj.size) &&
+                (target.form == "anyform" || target.form == obj.form)))) {
+                possibleTargets.push(id);
+              }
             }
           }
         }
+        console.log("Possible targets: " + possibleTargets);
         return possibleTargets;
     }
 
-    function checkLocation(object : string, location : Parser.Location, state: WorldState) : boolean{
-      console.log("Checking location: " + location + " with: " + object);
+    function checkLocation(obj : string, location : Parser.Location, state: WorldState) : boolean{
+      console.log("Checking location: '" + location.relation + "' with: " + obj);
       var stacks = state.stacks;
       var objectsToCheck : string[] = [];
-      var stackIndex = findStack(object, state);
+      var stackIndex = findStack(obj, state);
       var stack = stacks[stackIndex];
-      var height = findHeight(object, stack);
+      var height = findHeight(obj, stack);
+      var object = state.objects[obj];
+      if(obj == "floor") {
+        return false;
+      }
       switch(location.relation){
           case "leftof":
               for (var i = stackIndex + 1; i < stacks.length; i++) {
@@ -189,10 +218,21 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               }
               break;
           case "inside":
-              //TODO break if not a box
+              if(height > 0){
+                var posBox = state.objects[stack[height - 1]];
+                var size = posBox.size;
+                if(posBox.form == "box" &&
+                  (object.form != "pyramid" || object.form != "plank") &&
+                  ((size == "small" && object.size != "large") || (size == "large" && object.form != "box"))) {
+                    objectsToCheck.push(stack[height - 1]);
+                }
+              }
+              break;
           case "ontop":
               if(height > 0){
                 objectsToCheck.push(stack[height - 1]);
+              } else {
+                objectsToCheck.push("floor");
               }
               break;
           case "under":
@@ -214,7 +254,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               }
               break;
       }
-      console.log("checking:" + objectsToCheck);
+      console.log("Objects to check:" + objectsToCheck);
       return matchObject(objectsToCheck, location.entity.object, state).length > 0;
     }
 
@@ -234,8 +274,4 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         }
         return null;
     }
-
-
-
 }
-
