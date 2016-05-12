@@ -43,7 +43,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             try {
                 var result : InterpretationResult = <InterpretationResult>parseresult;
                 result.interpretation = interpretCommand(result.parse, currentState);
-                if(result.interpretation != null) interpretations.push(result);
+                interpretations.push(result);
             } catch(err) {
                 errors.push(err);
             }
@@ -173,7 +173,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         }
 
         if (interpretation.length == 0) {
-            return null;
+            throw "No interpretation was found";
         } else {
             return interpretation;
         }
