@@ -43,7 +43,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             try {
                 var result : InterpretationResult = <InterpretationResult>parseresult;
                 result.interpretation = interpretCommand(result.parse, currentState);
-                interpretations.push(result);
+                if(result.interpretation != null) interpretations.push(result);
             } catch(err) {
                 errors.push(err);
             }
@@ -114,11 +114,11 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var pickup = cmd.location == undefined;
         var relation = pickup? "holding" : cmd.location.relation;
 
-        var getRelatedLabels = function() {
-            return matchObject(labels, cmd.location.entity.object, state);
-        };
         var getMovingLables = function() {
             return matchObject(labels, cmd.entity.object, state);
+        };
+        var getRelatedLabels = function() {
+            return matchObject(labels, cmd.location.entity.object, state);
         };
 
         logLabels(labels, state);
@@ -184,7 +184,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
     function logLabels(labels: string[], state : WorldState) : void{
         for (var i = 0; i < labels.length; i++) {
             console.log(labels[i])
-            console.log(state.objects[labels[i]]);
+            console.log(labels[i] == "floor" ? getFloor() : state.objects[labels[i]]);
         }
     }
 
@@ -227,6 +227,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
     }
 
     function checkRelation(object : string, location : Parser.Location, state: WorldState) : boolean{
+      if(object == "floor") return false;
       console.log("Checking relation: ")
       console.log(location)
       console.log("with: " + object);
@@ -350,4 +351,3 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         return result;
     }
 }
-
