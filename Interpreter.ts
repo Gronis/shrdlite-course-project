@@ -107,12 +107,13 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
      * @returns A list of list of Literal, representing a formula in disjunctive normal form (disjunction of conjunctions). See the dummy interpetation returned in the code for an example, which means ontop(a,floor) AND holding(b).
      */
     function interpretCommand(cmd : Parser.Command, state : WorldState) : DNFFormula {
+        // A label is a string id referencing an object in the world
         var labels = Array.prototype.concat.apply(["floor"], state.stacks);
         var movableLabels : string[] = [];
-        var relationLables : string[] = [];
+        var relatableLabels : string[] = [];
         var putdown = cmd.entity == undefined;
         var pickup = cmd.location == undefined;
-        var relation = pickup? "holding" : cmd.location.relation;
+        var relation = pickup ? "holding" : cmd.location.relation;
 
         var getMovingLables = function() {
             return matchObject(labels, cmd.entity.object, state);
@@ -121,26 +122,32 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             return matchObject(labels, cmd.location.entity.object, state);
         };
 
-        logLabels(labels, state);
-
         if(putdown){
             movableLabels = [state.holding];
-            relationLables = getRelatedLabels();
+            relatableLabels = getRelatedLabels();
         } else if(pickup){
             movableLabels = getMovingLables();
         } else{
             movableLabels = getMovingLables()
-            relationLables = getRelatedLabels();
+            relatableLabels = getRelatedLabels();
         }
-        return getDNFFormula(movableLabels, relationLables, relation, state);
+        return getDNFFormula(movableLabels, relatableLabels, relation, state);
     }
 
-    function getDNFFormula(movableLabels: string[],
-                           relatedLabels : string[],
-                           relation      : string,
-                           state         : WorldState) : DNFFormula {
+    /**
+     * Creates a DNFFormula. Checks that the relation between objects is
+     * physically correct.
+     * @param The labels of the objects that could be moved
+     * @param The labels of the objects that the movable objects could be related to
+     * @param The relation we want to achieve between the movable and relatable objects
+     * @returns A DNFFormula or null if no interpretation is found
+     */
+    function getDNFFormula(movableLabels   : string[],
+                           relatableLabels : string[],
+                           relation        : string,
+                           state           : WorldState) : DNFFormula {
         var interpretation: DNFFormula = [];
-        //Cannot move floor
+        // We cannot move or pick up the floor
         movableLabels = movableLabels.filter((label) => label != "floor");
         function push(args : string[]){
             var lit: Literal = {
@@ -151,43 +158,28 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             interpretation.push([lit]);
         }
 
-        console.log("Formula from: " + movableLabels + ", " + relatedLabels);
-
         for (var i = movableLabels.length - 1; i >= 0; i--) {
             var ml = movableLabels[i];
             if (relation == "holding") {
                 push([ml]);
-            }
-            else for (var j = relatedLabels.length - 1; j >= 0; j--) {
-                var rl = relatedLabels[j];
-                if (isPhysicallyCorrect(ml, rl, relation, state)){
-                    push([ml, rl]);
+            } else {
+                for (var j = relatableLabels.length - 1; j >= 0; j--) {
+                    var rl = relatableLabels[j];
+                    if (isPhysicallyCorrect(ml, rl, relation, state)){
+                        push([ml, rl]);
+                    }
                 }
             }
         }
 
         if (interpretation.length == 0) {
-            console.log("Returning empty formula");
             return null;
-        }
-        else {
-            console.log("Returning formula: " + interpretation.map((literals)=>
-                literals.map(Interpreter.stringifyLiteral)
-                    .sort()
-                    .join(" & "))
-                    .sort()
-                    .join(" | "));
+        } else {
             return interpretation;
         }
     }
 
-    function logLabels(labels: string[], state : WorldState) : void{
-        for (var i = 0; i < labels.length; i++) {
-            console.log(labels[i])
-            console.log(labels[i] == "floor" ? getFloor() : state.objects[labels[i]]);
-        }
-    }
-
+    // Returns the objectdefinition of the floor.
     function getFloor(): ObjectDefinition {
         return {
             color: null,
@@ -196,29 +188,32 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         };
     }
 
+    /**
+     * Finds all labels that match the target.
+     * @param List of all labels to be matched against target
+     * @param The target to match against
+     * @param The state of the world
+     * @returns A subset of param labels, such that they match the target
+     */
     function matchObject(lables : string[], target : Parser.Object, state: WorldState) : string[]{
         var possibleTargets : string[] = [];
         var continueRecursivly = target.object != undefined;
 
-        console.log("Matching with: " + lables);
-
         if(continueRecursivly){
             var matchingObjs = matchObject(lables, target.object, state);
-            console.log("Found matches: " + matchingObjs);
             for (var j = 0; j < matchingObjs.length; j++){
                 var matchingObj = matchingObjs[j];
                 if(checkRelation(matchingObj, target.location, state)){
                     possibleTargets.push(matchingObj);
                 }
             }
-        } else { //check object specification
+        } else { // Match object specifications
           for (var i = lables.length - 1; i >= 0; i--) {
             var label  = lables[i];
             var object = label == "floor"? getFloor() : state.objects[label];
             if ((target.color == null      || target.color == object.color) &&
                 (target.size  == null      || target.size  == object.size)  &&
                 (target.form  == "anyform" || target.form  == object.form)) {
-                console.log("Found match: " + label);
                 possibleTargets.push(label);
             }
           }
@@ -226,11 +221,11 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         return possibleTargets;
     }
 
+    /**
+     * Checks if object fullfils the location.
+     */
     function checkRelation(object : string, location : Parser.Location, state: WorldState) : boolean{
       if(object == "floor") return false;
-      console.log("Checking relation: ")
-      console.log(location)
-      console.log("with: " + object);
       var stacks = state.stacks;
       var objectsToCheck : string[] = [];
       var stackIndex = findStack(object, state);
@@ -281,13 +276,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
       return matchObject(objectsToCheck,location.entity.object,state).length>0;
     }
 
-    function findHeight(object: string, stack: Stack) : number{
-      for (var j = 0; j < stack.length; j++) {
-        if (stack[j] == object) return j;
-      }
-      return null;
-    }
-
+    // Finds which stack the object is in.
     function findStack(object : string, state: WorldState) : number{
         for (var i = 0; i < state.stacks.length; i++){
           var stack = state.stacks[i];
@@ -298,6 +287,18 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         return null;
     }
 
+    // Finds the height of an object in the given stack.
+    function findHeight(object: string, stack: Stack) : number{
+      for (var j = 0; j < stack.length; j++) {
+        if (stack[j] == object) return j;
+      }
+      return null;
+    }
+
+    /**
+     * Checks if for two different objects the relation between them is
+     * physically correct.
+     */
     function isPhysicallyCorrect(label1: string,
                                  label2: string,
                                  relation: string,
@@ -318,9 +319,6 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                     result = false;
                 if (s2 == "small" && s1 == "large")
                     result = false;
-                if (!result) {
-                    console.log(label1 + " cannot be inside " + label2);
-                }
                 break;
             case "ontop":
                 if (s2 == "small" && s1 == "large")
@@ -335,9 +333,6 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                 if (s1 == "large" && f1 == "box" &&
                     s2 == "large" && f2 == "pyramid")
                     result = false;
-                if (!result) {
-                    console.log(label1 + " cannot be on top of " + label2);
-                }
                 break;
             case "under":
                 if (f1 == "ball")
