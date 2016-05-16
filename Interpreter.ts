@@ -277,20 +277,21 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
     }
 
     // Finds which stack the object is in.
-    function findStack(object : string, state: WorldState) : number{
+    export function findStack(label : string, state: WorldState) : number{
         for (var i = 0; i < state.stacks.length; i++){
           var stack = state.stacks[i];
           for (var j = 0; j < stack.length; j++){
-            if (stack[j] == object) return i;
+            if (stack[j] == label) return i;
           }
         }
+        console.log("Cannot find stack of label: " + label + " stacks: " + JSON.stringify(state.stacks));
         return null;
     }
 
-    // Finds the height of an object in the given stack.
-    function findHeight(object: string, stack: Stack) : number{
+    // Finds the height of an label in the given stack.
+    export function findHeight(label: string, stack: Stack) : number{
       for (var j = 0; j < stack.length; j++) {
-        if (stack[j] == object) return j;
+        if (stack[j] == label) return j;
       }
       return null;
     }
@@ -299,7 +300,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
      * Checks if for two different objects the relation between them is
      * physically correct.
      */
-    function isPhysicallyCorrect(label1: string,
+    export function isPhysicallyCorrect(label1: string,
                                  label2: string,
                                  relation: string,
                                  state: WorldState): boolean {
@@ -343,6 +344,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                     result = false;
                 break;
         }
+        console.log(label1 + " " + relation + " " + label2 + " result: " + result);
         return result;
     }
 }

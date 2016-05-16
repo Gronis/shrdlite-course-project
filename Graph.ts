@@ -79,10 +79,10 @@ function aStarSearch<Node> (
     var queue: collections.PriorityQueue<QueueElement<Node>> =
         new collections.PriorityQueue<QueueElement<Node>>(comparator);
     var cameFrom: collections.Dictionary<Node, Node> =
-        new collections.Dictionary<Node, Node>();
+      new collections.Dictionary<Node, Node>(JSON.stringify);
     var costs: collections.Dictionary<Node, number> =
-        new collections.Dictionary<Node, number>();
-    var visited: collections.Set<Node> = new collections.Set<Node>();
+      new collections.Dictionary<Node, number>(JSON.stringify);
+    var visited: collections.Set<Node> = new collections.Set<Node>(JSON.stringify);
     var current: QueueElement<Node> = new QueueElement(start, 0);
     costs.setValue(start, 0);
 
@@ -98,15 +98,15 @@ function aStarSearch<Node> (
                 var heuristic = heuristics(child);
                 var hasParent = cameFrom.containsKey(child);
                 var oldCostFromStart = costs.getValue(child);
-            if (!hasParent || oldCostFromStart > costFromStart) {
-                queue.enqueue(new QueueElement(child, costFromStart+heuristic));
-                cameFrom.setValue(child, current.node);
-                costs.setValue(child, costFromStart);
+                if (!hasParent || oldCostFromStart > costFromStart) {
+                    queue.enqueue(new QueueElement(child, costFromStart+heuristic));
+                    cameFrom.setValue(child, current.node);
+                    costs.setValue(child, costFromStart);
+                }
             }
-          }
         }
         if ((tNow - startTime) > (timeout * 1000) || queue.isEmpty()) {
-          return null;
+          throw("I am too dumb to figure this one out.")
         }
         current = queue.dequeue();
     }
@@ -114,7 +114,7 @@ function aStarSearch<Node> (
     //Reconstruct path
     var finalCost = costs.getValue(current.node);
     var path: [Node] = <any>[];
-    while(current.node != start){
+    while(graph.compareNodes(current.node, start) != 0){
         path.push(current.node);
         current.node = cameFrom.getValue(current.node);
     }
