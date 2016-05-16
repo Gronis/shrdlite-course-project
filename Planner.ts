@@ -210,8 +210,8 @@ module Planner {
           return !literal.polarity;
         case "inside":
         case "ontop":
-          return (heightLabel1 > 0 && stack[heightLabel1 - 1] == label2) ==
-                 literal.polarity;
+          return ((heightLabel1 > 0 && stack[heightLabel1 - 1] == label2) ||
+            (heightLabel1 == 0 && label2 == "floor")) == literal.polarity;
         case "under":
           for (var i = heightLabel1 + 1; i < stack.length; i++) {
               if (stack[i] == label2) return literal.polarity;
@@ -238,6 +238,67 @@ module Planner {
           return !literal.polarity;
       }
       return !literal.polarity;
+    }
+
+    function manhattanDistance(literal :Interpreter.Literal, state:WorldState){
+        var label1 = literal.args[0];
+        var stacks = state.stacks;
+        var arm = state.arm;
+
+        function stepsBetween(l1 : string, l2: string){
+          var si1 = l1 == state.holding? arm :Interpreter.findStack(l1, state);
+          var si2 = l2 == state.holding? arm :Interpreter.findStack(l2, state);
+          return Math.abs(si1 - si2);
+        }
+
+        function costMovingTo(label : string){
+            if (label == state.holding) {
+                return 0;
+            }
+            var stackIndex = Interpreter.findStack(label, state);
+            return Math.abs(arm - stackIndex);
+        }
+
+        function costToExpose(label : string){
+            // More sofisticated calculation for floor
+            if (label == state.holding) return 0;
+            if (label == "floor")       return 1;
+            var stackIndex = Interpreter.findStack(label, state);
+            var stack = stacks[stackIndex];
+            var heightLabel1 = Interpreter.findHeight(label1, stack);
+            return 4 * (stack.length - 1 - heightLabel1);
+        }
+
+        if(literal.relation == "holding"){
+            return costToExpose(label1) + costMovingTo(label1) + 1;
+        }
+
+        var label2 = literal.args[1];
+        switch (literal.relation) {
+          case "leftof":
+          case "rightof":
+            return stepsBetween(label1, label2) + 1 +
+                   Math.min(costToExpose(label1) + costMovingTo(label1),
+                            costToExpose(label2) + costMovingTo(label2));
+          case "inside":
+          case "ontop":
+            return Math.min(costMovingTo(label1), costMovingTo(label2)) +
+                   stepsBetween(label1, label2) + 1 +
+                   costToExpose(label1) + costToExpose(label2);
+          case "beside":
+            return Math.min(costMovingTo(label1) + costToExpose(label1),
+                            costMovingTo(label2) + costToExpose(label2)) +
+                   stepsBetween(label1,label2) - 1;
+          case "under":
+            return costMovingTo(label2) +
+                   costToExpose(label2) +
+                   stepsBetween(label2, label1);
+          case "above":
+            return costMovingTo(label1) +
+                   costToExpose(label1) +
+                   stepsBetween(label1, label2);
+        }
+        return 0;
     }
 
     /**
@@ -278,13 +339,30 @@ module Planner {
         }
 
         function heuristics(node: SearchNode): number {
-          return 0;
+            var disjunctionHeur = Infinity;
+            for (var conjunction of interpretation) {
+                var conjunctionHeur = 0;
+                for (var literal of conjunction) {
+                    var heuristic = manhattanDistance(literal, node.state);
+                    if (heuristic > conjunctionHeur) {
+                        conjunctionHeur = heuristic;
+                    }
+                }
+                if(conjunctionHeur < disjunctionHeur){
+                    disjunctionHeur = conjunctionHeur;
+                }
+            }
+            return disjunctionHeur;
         }
 
         var result = aStarSearch(graph, startNode, goal, heuristics, 10);
 
         for(var r of result.path){
             plan.push(r.action);
+            var o = r.state.objects[r.state.holding];
+            if (r.action == "p"){
+                plan.push("Moving the "+o.size+" "+o.color+" "+o.form);
+            }
         }
         return plan;
     }

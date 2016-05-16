@@ -122,6 +122,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             return matchObject(labels, cmd.location.entity.object, state);
         };
 
+        if (state.holding != null) labels.push(state.holding);
+
         if(putdown){
             movableLabels = [state.holding];
             relatableLabels = getRelatedLabels();
@@ -224,13 +226,14 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
     /**
      * Checks if object fullfils the location.
      */
-    function checkRelation(object : string, location : Parser.Location, state: WorldState) : boolean{
-      if(object == "floor") return false;
+    function checkRelation(label : string, location : Parser.Location, state: WorldState) : boolean{
+      if (label == "floor") return false;
+      if (state.holding == label) return false;
       var stacks = state.stacks;
       var objectsToCheck : string[] = [];
-      var stackIndex = findStack(object, state);
+      var stackIndex = findStack(label, state);
       var stack = stacks[stackIndex];
-      var height = findHeight(object, stack);
+      var height = findHeight(label, stack);
       switch(location.relation){
           case "leftof":
               for (var i = stackIndex + 1; i < stacks.length; i++) {
@@ -293,7 +296,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
       for (var j = 0; j < stack.length; j++) {
         if (stack[j] == label) return j;
       }
-      return null;
+      return -1;
     }
 
     /**
@@ -322,6 +325,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                     result = false;
                 break;
             case "ontop":
+                if (f2 == "box")
+                    result = false;
                 if (s2 == "small" && s1 == "large")
                     result = false;
                 if (f2 == "ball")
@@ -344,7 +349,6 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                     result = false;
                 break;
         }
-        console.log(label1 + " " + relation + " " + label2 + " result: " + result);
         return result;
     }
 }
