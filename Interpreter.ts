@@ -115,6 +115,12 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var pickup = cmd.location == undefined;
         var relation = pickup ? "holding" : cmd.location.relation;
 
+        //Null check?
+        var movableQuantifier : string = cmd.entity.quantifier;
+        var locationQuantifier : string = pickup ? undefined : cmd.location.entity.quantifier;
+        console.log("movableQuantifier: " + movableQuantifier)
+        console.log("locationQuantifier: " + locationQuantifier)
+
         var getMovingLables = function() {
             return matchObject(labels, cmd.entity.object, state);
         };
@@ -133,7 +139,9 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             movableLabels = getMovingLables()
             relatableLabels = getRelatedLabels();
         }
-        return getDNFFormula(movableLabels, relatableLabels, relation, state);
+
+        return getDNFFormula(movableLabels, relatableLabels, relation,
+           movableQuantifier, locationQuantifier, state);
     }
 
     /**
@@ -142,15 +150,24 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
      * @param The labels of the objects that could be moved
      * @param The labels of the objects that the movable objects could be related to
      * @param The relation we want to achieve between the movable and relatable objects
-     * @returns A DNFFormula or null if no interpretation is found
+     * @returns A DNFFormula
+     * @throws An error when no valid interpretations can be found
      */
-    function getDNFFormula(movableLabels   : string[],
-                           relatableLabels : string[],
-                           relation        : string,
+    function getDNFFormula(movableLabels      : string[],
+                           relatableLabels    : string[],
+                           relation           : string,
+                           movableQuantifier  : string,
+                           locationQuantifier : string,
                            state           : WorldState) : DNFFormula {
         var interpretation: DNFFormula = [];
         // We cannot move or pick up the floor
         movableLabels = movableLabels.filter((label) => label != "floor");
+
+        /* TODO: Make generic so it can build both conjunctions and
+        disjunctions? Or just create the Literal in the loop and push
+        directly. No need for function.*/
+
+        /* Tog bort sålänge
         function push(args : string[]){
             var lit: Literal = {
                 polarity: true,
@@ -160,22 +177,62 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             interpretation.push([lit]);
         }
 
-        for (var i = movableLabels.length - 1; i >= 0; i--) {
-            var ml = movableLabels[i];
-            if (relation == "holding") {
-                push([ml]);
-            } else {
-                for (var j = relatableLabels.length - 1; j >= 0; j--) {
-                    var rl = relatableLabels[j];
-                    if (isPhysicallyCorrect(ml, rl, relation, state)){
-                        push([ml, rl]);
-                    }
-                }
-            }
+        */
+
+        // if(movableQuantifier == "any" && locationQuantifier == "all") {
+        //
+        // } else if(movableQuantifier == "all" && locationQuantifier == "any") {
+        //
+        // } else
+          if(movableQuantifier == "all") {
+          //If quantifier is "all", build a conjunction formula.
+          var formula : Literal[] = [];
+          for (var i = movableLabels.length - 1; i >= 0; i--) {
+              var ml = movableLabels[i];
+              for (var j = relatableLabels.length - 1; j >= 0; j--) {
+                  var rl = relatableLabels[j];
+                  if (isPhysicallyCorrect(ml, rl, relation, state)){
+                      var lit : Literal = {polarity:true, relation: relation,
+                          args: [ml, rl]};
+                      //Add conjunction till formula.
+                      formula.push(lit);
+                  }
+              }
+          }
+          interpretation.push(formula);
+
+        /* TODO: Separate between 'the' and 'any' */
+
+        //Otherwise build disjunctions
+        } else {
+          for (var i = movableLabels.length - 1; i >= 0; i--) {
+              var ml = movableLabels[i];
+              if (relation == "holding") {
+                var lit : Literal = {polarity:true, relation: relation,
+                    args: [ml]};
+                interpretation.push([lit]);
+              } else {
+                  for (var j = relatableLabels.length - 1; j >= 0; j--) {
+                      var rl = relatableLabels[j];
+                      if (isPhysicallyCorrect(ml, rl, relation, state)){
+                        var lit : Literal = {polarity:true, relation: relation,
+                            args: [ml, rl]};
+                        //Add disjunction to formula.
+                        interpretation.push([lit]);
+                      }
+                  }
+              }
+          }
         }
 
         if (interpretation.length == 0) {
             throw "No interpretation was found";
+        } else if (movableQuantifier == "the" && interpretation.length > 1) {
+            /* TODO: Do something funny here. Throw exception and catch in
+             interpretCommand? Or just check the same condition after call
+             to getDNF in interpretCommand? */
+             //throw "ambiguous result";
+            return interpretation;
         } else {
             return interpretation;
         }
@@ -287,7 +344,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             if (stack[j] == label) return i;
           }
         }
-        console.log("Cannot find stack of label: " + label + " stacks: " + JSON.stringify(state.stacks));
+        //console.log("Cannot find stack of label: " + label + " stacks: " + JSON.stringify(state.stacks));
         return null;
     }
 
