@@ -199,19 +199,20 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             return dnf;
         }
 
-        // if(movableQuantifier == "any" && locationQuantifier == "all") {
-        //
-        // } else
-
+        //Only one object can be inside/ontop of another one, unless floor.
+        if(movableQuantifier == "all" &&
+            (relation == "ontop" || relation == "inside") &&
+            !(relatableLabels.length == 1 && relatableLabels[0] == "floor") &&
+            relatableLabels.length < movableLabels.length) {
+          /* TODO: Add the form of destination object instead of "locations"*/
+          throw "There are not enough locations for this."
+        }
 
         //Build conjunction of disjunctions.
         if((movableQuantifier == "all" && locationQuantifier == "any") ||
           (movableQuantifier == "any" && locationQuantifier == "all")) {
-            // if(relatableLabels.length < movableLabels.length) {
-            //   console.log("Not enough locations!")
-            //   throw "There are not enough locations for this."
-            // }
             var conjunction : Literal[][] = [];
+            //Build disjunction
             for(var i = 0; i < movableLabels.length; i++) {
               var disjunction : Literal[] = [];
               var ml = movableLabels[i];
@@ -223,12 +224,13 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                   disjunction.push(lit);
                 }
               }
+              //Build conjunction of disjunctions
               conjunction.push(disjunction);
-
             }
+            //Convert to DNF.
             interpretation = conjunctionToDisjunction(conjunction);
         } else if(movableQuantifier == "all") {
-          //If quantifier is "all", build a conjunction formula.
+          //Build conjunction formula.
           var formula : Literal[] = [];
           for (var i = movableLabels.length - 1; i >= 0; i--) {
               var ml = movableLabels[i];
