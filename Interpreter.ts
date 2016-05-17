@@ -166,8 +166,6 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         /* TODO: Make generic so it can build both conjunctions and
         disjunctions? Or just create the Literal in the loop and push
         directly. No need for function.*/
-
-        /* Tog bort sålänge
         function push(args : string[]){
             var lit: Literal = {
                 polarity: true,
@@ -177,14 +175,59 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             interpretation.push([lit]);
         }
 
-        */
+
+        function conjunctionToDisjunction(conjunction : Literal[][]) : DNFFormula {
+            var dnf : DNFFormula = [];
+            var firstDisjunction : Literal[] = conjunction[0];
+            //Combine (AND) the literals of the first disjunction with the Literals
+            //of all other disjunctions, to create a disjunction of conjunctions
+            //i.e DNF.
+            for(var i = 0; i < firstDisjunction.length; i++) {
+              var literal1: Literal = firstDisjunction[i];
+              var newConjunction : Literal[] = [];
+              for(var j = 1; j < conjunction.length; j++) {
+                var disjunction = conjunction[j];
+                for(var k = 0; k < disjunction.length; k++) {
+                  var literal2 : Literal = disjunction[k];
+                  /* TODO: Can this be optimized to remove things such as
+                  (inside(e,k) & inside(f,k) | ... | ... ). Will it matter?
+                  The goal check is not that heavy right?*/
+                  dnf.push([literal1, literal2]);
+                }
+              }
+            }
+            return dnf;
+        }
 
         // if(movableQuantifier == "any" && locationQuantifier == "all") {
         //
-        // } else if(movableQuantifier == "all" && locationQuantifier == "any") {
-        //
         // } else
-          if(movableQuantifier == "all") {
+
+
+        //Build conjunction of disjunctions.
+        if((movableQuantifier == "all" && locationQuantifier == "any") ||
+          (movableQuantifier == "any" && locationQuantifier == "all")) {
+            // if(relatableLabels.length < movableLabels.length) {
+            //   console.log("Not enough locations!")
+            //   throw "There are not enough locations for this."
+            // }
+            var conjunction : Literal[][] = [];
+            for(var i = 0; i < movableLabels.length; i++) {
+              var disjunction : Literal[] = [];
+              var ml = movableLabels[i];
+              for(var j = 0; j < relatableLabels.length; j++) {
+                var rl = relatableLabels[j];
+                if(isPhysicallyCorrect(ml, rl, relation, state)) {
+                  var lit : Literal = {polarity: true, relation: relation,
+                    args: [ml, rl]};
+                  disjunction.push(lit);
+                }
+              }
+              conjunction.push(disjunction);
+
+            }
+            interpretation = conjunctionToDisjunction(conjunction);
+        } else if(movableQuantifier == "all") {
           //If quantifier is "all", build a conjunction formula.
           var formula : Literal[] = [];
           for (var i = movableLabels.length - 1; i >= 0; i--) {
