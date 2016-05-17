@@ -202,10 +202,24 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         //Only one object can be inside/ontop of another one, unless floor.
         if(movableQuantifier == "all" &&
             (relation == "ontop" || relation == "inside") &&
-            !(relatableLabels.length == 1 && relatableLabels[0] == "floor") &&
-            relatableLabels.length < movableLabels.length) {
+            !(relatableLabels.length == 1 && relatableLabels[0] == "floor")) {
           /* TODO: Add the form of destination object instead of "locations"*/
-          throw "There are not enough locations for this."
+          if(locationQuantifier == "all") {
+            throw "This is just silly."
+          } else if(locationQuantifier == "the") {
+            throw "There can only be one object ontop/inside another object."
+          } else if(relatableLabels.length < movableLabels.length) {
+            throw "There are not enough locations for this."
+          }
+        }
+
+        //Cannot put an object insde/ontop of every destination location if
+        //there are less objects to move than desination locations.
+        if(locationQuantifier == "all" &&
+            (relation == "ontop" || relation == "inside") &&
+            movableLabels.length < relatableLabels.length) {
+              /* TODO: Add form of object instead of "objects" */
+              throw "There are not enough objects for this."
         }
 
         //Build conjunction of disjunctions.
@@ -227,7 +241,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               //Build conjunction of disjunctions
               conjunction.push(disjunction);
             }
-            //Convert to DNF.
+            //Convert to DNF before returning.
             interpretation = conjunctionToDisjunction(conjunction);
         } else if(movableQuantifier == "all") {
           //Build conjunction formula.
