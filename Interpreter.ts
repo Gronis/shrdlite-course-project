@@ -340,12 +340,12 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
      * @param The state of the world
      * @returns A subset of param labels, such that they match the target
      */
-    function matchObject(lables : string[], target : Parser.Object, state: WorldState) : string[]{
+    function matchObject(labels : string[], target : Parser.Object, state: WorldState) : string[]{
         var possibleTargets : string[] = [];
         var continueRecursivly = target.object != undefined;
 
         if(continueRecursivly){
-            var matchingObjs = matchObject(lables, target.object, state);
+            var matchingObjs = matchObject(labels, target.object, state);
             for (var j = 0; j < matchingObjs.length; j++){
                 var matchingObj = matchingObjs[j];
                 if(checkRelation(matchingObj, target.location, state)){
@@ -353,17 +353,24 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                 }
             }
         } else { // Match object specifications
-          for (var i = lables.length - 1; i >= 0; i--) {
-            var label  = lables[i];
-            var object = label == "floor"? getFloor() : state.objects[label];
-            if ((target.color == null      || target.color == object.color) &&
-                (target.size  == null      || target.size  == object.size)  &&
-                (target.form  == "anyform" || target.form  == object.form)) {
-                possibleTargets.push(label);
-            }
-          }
+          return filterLabels(labels, target.size,
+                 target.color, target.form, state);
         }
         return possibleTargets;
+    }
+
+    export function filterLabels(labels : string[], size: string, color : string, form : string, state : WorldState) : string[]{
+      var filteredLabels: string[] = [];
+      for (var i = labels.length - 1; i >= 0; i--) {
+        var label = labels[i];
+        var object = label == "floor" ? getFloor() : state.objects[label];
+        if ((color == null || color == object.color) &&
+          (size == null || size == object.size) &&
+          (form == "anyform" || form == object.form)) {
+          filteredLabels.push(label);
+        }
+      }
+      return filteredLabels;
     }
 
     /**

@@ -304,6 +304,29 @@ module Planner {
         return 0;
     }
 
+    function minimalInfo(label: string, state : WorldState) : string{
+        if (label == "floor") return label;
+        var obj = state.objects[label];
+        var labels = Array.prototype.concat.apply([], state.stacks);
+        if (state.holding != null) labels.push(state.holding);
+        var checks = [ {size: null, color: null, form: obj.form},
+                       {size: obj.size, color : null, form : obj.form},
+                       {size: null, color : obj.color, form : obj.form},
+                       {size: obj.size, color : obj.color, form : obj.form} ];
+        function stringify(c : ObjectDefinition) : string{
+            return (c.size == null? "" : (c.size + " ")) +
+                   (c.color == null? "" : (c.color + " ")) +
+                   c.form;
+        }
+        for (var i = 0; i < checks.length; i++){
+            var c = checks[i]
+            if (Interpreter.filterLabels(labels, c.size, c.color, c.form, state).length == 1)
+              return stringify(c);
+        }
+        // cannot find an individual object based on size, color and form
+        return stringify(checks[3]);
+    }
+
     /**
      * @param interpretation The logical interpretation of the user's desired goal. The plan needs to be such that by executing it, the world is put into a state that satisfies this goal.
      * @param state The current world state.
@@ -348,9 +371,9 @@ module Planner {
 
         for(var r of result.path){
             plan.push(r.action);
-            var o = r.state.objects[r.state.holding];
+            var label = r.state.holding;
             if (r.action == "p"){
-                plan.push("Moving the "+o.size+" "+o.color+" "+o.form);
+                plan.push("Moving the " + minimalInfo(label, state));
             }
         }
         return plan;
