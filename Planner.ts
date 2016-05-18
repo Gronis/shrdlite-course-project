@@ -247,9 +247,9 @@ module Planner {
 
         function costToExpose(label : string) : number{
             if (label == state.holding) return 0;
+            var stacks = state.stacks;
             if (label == "floor")
                 return 4 * stacks[indexOfFloor()].length + state.holding == null ? -1 : 0;
-            var stacks = state.stacks;
             var stackIndex = Interpreter.findStack(label, state);
             var stack = stacks[stackIndex];
             var heightLabel1 = Interpreter.findHeight(label1, stack);
