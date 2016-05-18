@@ -117,7 +117,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
 
         //Null check?
         var movableQuantifier : string = cmd.entity.quantifier;
-        var locationQuantifier : string = pickup ? undefined : cmd.location.entity.quantifier;
+        var locationQuantifier : string =
+          pickup ? undefined : cmd.location.entity.quantifier;
         console.log("movableQuantifier: " + movableQuantifier)
         console.log("locationQuantifier: " + locationQuantifier)
 
@@ -176,7 +177,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         }
 
 
-        function conjunctionToDisjunction(conjunction : Literal[][]) : DNFFormula {
+        function conjunctionToDisjunction(
+          conjunction : Literal[][]) : DNFFormula {
             var dnf : DNFFormula = [];
             var formula : Literal [] = [];
             dfs(0, formula);
@@ -206,6 +208,10 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             return dnf;
         }
 
+        if(movableLabels.length == 0) {
+          throw "Could not find any matching object."
+        }
+
         //Only one object can be inside/ontop of another one, unless floor.
         if(movableQuantifier == "all" &&
             (relation == "ontop" || relation == "inside") &&
@@ -229,8 +235,11 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               throw "There are not enough objects for this."
         }
 
-        //Build conjunction of disjunctions.
-        if(movableQuantifier == "all" && locationQuantifier == "any") {
+        //Moving every every object of some type
+        if(movableQuantifier == "all") {
+          //To any location of some type.
+          //Build conjunction of disjunctions.
+          if(locationQuantifier == "any") {
             var conjunction : Literal[][] = [];
             //Build disjunction
             for(var i = 0; i < movableLabels.length; i++) {
@@ -247,51 +256,69 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               //Build conjunction of disjunctions
               if(disjunction.length > 0) conjunction.push(disjunction);
             }
-            console.log(conjunction.map((literals) => literals.map(Interpreter.stringifyLiteral).sort().join(" | ")).sort().join(" & "));
+            console.log(conjunction.map((literals) =>
+                literals.map(Interpreter.stringifyLiteral).sort().join(" | "))
+                .sort().join(" & "));
             //Convert to DNF before returning.
             interpretation = conjunctionToDisjunction(conjunction);
-        } else if (movableQuantifier == "any" && locationQuantifier == "all"){
-          var conjunction: Literal[][] = [];
-          //Build disjunction
-          for (var j = 0; j < relatableLabels.length; j++) {
-            var disjunction: Literal[] = [];
-            var rl = relatableLabels[j];
-            for (var i = 0; i < movableLabels.length; i++) {
-              var ml = movableLabels[i];
-              if (isPhysicallyCorrect(ml, rl, relation, state)) {
-                var lit: Literal = {
-                  polarity: true, relation: relation,
-                  args: [ml, rl]
-                };
-                disjunction.push(lit);
-              }
+
+          } else if(relation == "holding") {
+            if(movableLabels.length > 1) {
+              throw "I can only hold one object."
+            } else {
+              var lit : Literal =
+                {polarity: true, relation: relation, args: [ml]};
+                interpretation.push([lit]);
             }
-            //Build conjunction of disjunctions
-            if (disjunction.length > 0) conjunction.push(disjunction);
+
+          } else {
+            //To a specific location or in relation to all objects of some type
+            //Build conjunction formula.
+            var formula : Literal[] = [];
+            for (var i = movableLabels.length - 1; i >= 0; i--) {
+                var ml = movableLabels[i];
+                for (var j = relatableLabels.length - 1; j >= 0; j--) {
+                    var rl = relatableLabels[j];
+                    if (isPhysicallyCorrect(ml, rl, relation, state)){
+                        var lit : Literal = {polarity:true, relation: relation,
+                            args: [ml, rl]};
+                        //Add conjunction till formula.
+                        formula.push(lit);
+                    }
+                }
+            }
+            interpretation.push(formula);
+
           }
-          console.log(conjunction.map((literals) => literals.map(Interpreter.stringifyLiteral).sort().join(" | ")).sort().join(" & "));
-          //Convert to DNF before returning.
-          interpretation = conjunctionToDisjunction(conjunction);
-        } else if (movableQuantifier == "all") {
-          //Build conjunction formula.
-          var formula : Literal[] = [];
-          for (var i = movableLabels.length - 1; i >= 0; i--) {
-              var ml = movableLabels[i];
-              for (var j = relatableLabels.length - 1; j >= 0; j--) {
-                  var rl = relatableLabels[j];
-                  if (isPhysicallyCorrect(ml, rl, relation, state)){
-                      var lit : Literal = {polarity:true, relation: relation,
-                          args: [ml, rl]};
-                      //Add conjunction till formula.
-                      formula.push(lit);
-                  }
+          //Move any, or a specific object of some type
+        } else if(movableQuantifier == "any" || movableQuantifier == "the") {
+          //To
+          if(locationQuantifier == "all") {
+            var conjunction: Literal[][] = [];
+            //Build disjunction
+            for (var j = 0; j < relatableLabels.length; j++) {
+              var disjunction: Literal[] = [];
+              var rl = relatableLabels[j];
+              for (var i = 0; i < movableLabels.length; i++) {
+                var ml = movableLabels[i];
+                if (isPhysicallyCorrect(ml, rl, relation, state)) {
+                  var lit: Literal = {
+                    polarity: true, relation: relation,
+                    args: [ml, rl]
+                  };
+                  disjunction.push(lit);
+                }
               }
+              //Build conjunction of disjunctions
+              if (disjunction.length > 0) conjunction.push(disjunction);
+            }
+            console.log(conjunction.map((literals) =>
+              literals.map(Interpreter.stringifyLiteral).sort()
+              .join(" | ")).sort().join(" & "));
+            //Convert to DNF before returning.
+            interpretation = conjunctionToDisjunction(conjunction);
+
           }
-          interpretation.push(formula);
-
-        /* TODO: Separate between 'the' and 'any' */
-
-        //Otherwise build disjunctions
         } else {
           for (var i = movableLabels.length - 1; i >= 0; i--) {
               var ml = movableLabels[i];
@@ -342,7 +369,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
      * @param The state of the world
      * @returns A subset of param labels, such that they match the target
      */
-    function matchObject(lables : string[], target : Parser.Object, state: WorldState) : string[]{
+    function matchObject(
+      lables : string[], target : Parser.Object, state: WorldState) : string[]{
         var possibleTargets : string[] = [];
         var continueRecursivly = target.object != undefined;
 
@@ -371,7 +399,9 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
     /**
      * Checks if object fullfils the location.
      */
-    function checkRelation(label : string, location : Parser.Location, state: WorldState) : boolean{
+    function checkRelation(
+      label : string, location : Parser.Location, state: WorldState) : boolean{
+
       if (label == "floor") return false;
       if (state.holding == label) return false;
       var stacks = state.stacks;
