@@ -364,6 +364,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
       for (var i = labels.length - 1; i >= 0; i--) {
         var label = labels[i];
         var object = label == "floor" ? getFloor() : state.objects[label];
+        // floor is not an "object"
+        if (label == "floor" && form == "anyform") continue;
         if ((color == null || color == object.color) &&
           (size == null || size == object.size) &&
           (form == "anyform" || form == object.form)) {
