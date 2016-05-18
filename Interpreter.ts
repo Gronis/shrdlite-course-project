@@ -114,9 +114,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var putdown = cmd.entity == undefined;
         var pickup = cmd.location == undefined;
         var relation = pickup ? "holding" : cmd.location.relation;
-
-        //Null check?
-        var movableQuantifier : string = cmd.entity.quantifier;
+        var movableQuantifier : string = putdown? "any":cmd.entity.quantifier;
         var locationQuantifier : string = pickup ? undefined : cmd.location.entity.quantifier;
         console.log("movableQuantifier: " + movableQuantifier)
         console.log("locationQuantifier: " + locationQuantifier)
