@@ -121,6 +121,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             }
         }
 
+        state.previousResults = null;
+
         // A label is a string id referencing an object in the world
         var labels = Array.prototype.concat.apply(["floor"], state.stacks);
         var movableLabels : string[] = [];
