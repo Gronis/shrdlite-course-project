@@ -140,8 +140,55 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             relatableLabels = getRelatedLabels();
         }
 
+        if(cmd.entity.quantifier == "the" && movableLabels.length > 1){
+            state.previousResults =
+                getDividedDNFFormula(movableLabels, relatableLabels,relation,
+                    movableQuantifier, locationQuantifier, state);
+            throw clarificationMessage(movableLabels,state);
+        }if(cmd.location.entity.quantifier == "the" && relatableLabels.length > 1){
+            //state.previousResults = getDividedDNFFormula(relatableLabels,movableLabels);
+            throw clarificationMessage(relatableLabels,state);
+        }
+
         return getDNFFormula(movableLabels, relatableLabels, relation,
            movableQuantifier, locationQuantifier, state);
+    }
+
+    function getDividedDNFFormula(
+        labels1      : string[],
+        labels2    : string[],
+        relation           : string,
+        movableQuantifier  : string,
+        locationQuantifier : string,
+        state           : WorldState)
+        : collections.Dictionary<string,DNFFormula>{
+
+            var newFormula = new collections.Dictionary<string,DNFFormula>();
+
+            var map : collections.Dictionary<string,DNFFormula> =
+                new collections.Dictionary<string,DNFFormula>();
+
+            for(var label of labels1){
+                newFormula.setValue(label,
+                    (getDNFFormula([label],labels2,relation,movableQuantifier,locationQuantifier, state)));
+            }
+
+            return newFormula;
+    }
+
+    function clarificationMessage(labels : string[], state : WorldState) : string {
+        var message = "Did you mean the ";
+        // TODO: Difference between messages
+        var difference = "";
+        for(var labelIndex=0; labelIndex < labels.length; labelIndex++){
+            var object : Parser.Object = state.objects[labelIndex];
+            message += object.form;
+            if(labelIndex < labels.length - 1){
+                message += difference + " or the ";
+            }
+        }
+        message += "?";
+        return message;
     }
 
     /**
@@ -346,6 +393,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var possibleTargets : string[] = [];
         var continueRecursivly = target.object != undefined;
 
+
+
         if(continueRecursivly){
             var matchingObjs = matchObject(lables, target.object, state);
             for (var j = 0; j < matchingObjs.length; j++){
@@ -433,7 +482,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
           }
         }
         //console.log("Cannot find stack of label: " + label + " stacks: " + JSON.stringify(state.stacks));
-        return state.arm;
+        return null;
     }
 
     // Finds the height of an label in the given stack.
