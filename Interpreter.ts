@@ -107,6 +107,20 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
      * @returns A list of list of Literal, representing a formula in disjunctive normal form (disjunction of conjunctions). See the dummy interpetation returned in the code for an example, which means ontop(a,floor) AND holding(b).
      */
     function interpretCommand(cmd : Parser.Command, state : WorldState) : DNFFormula {
+
+        var command : Parser.Command;
+
+        if(cmd.command.split[0].toLowerCase() == "the"){
+            var object : Parser.Object;
+            var formula = state.previousResults.getValue(cmd.command.split[1].toLowerCase());
+            if(formula != null){
+                state.previousResults = null;
+                return formula;
+            }else{
+                throw "I beg your pardon?";
+            }
+        }
+
         // A label is a string id referencing an object in the world
         var labels = Array.prototype.concat.apply(["floor"], state.stacks);
         var movableLabels : string[] = [];
@@ -176,6 +190,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             return newFormula;
     }
 
+    /* Builds a clarification message for the user. */
     function clarificationMessage(labels : string[], state : WorldState) : string {
         var message = "Did you mean the ";
         // TODO: Difference between messages
