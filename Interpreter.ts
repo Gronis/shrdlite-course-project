@@ -404,7 +404,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
           }
         }
         //console.log("Cannot find stack of label: " + label + " stacks: " + JSON.stringify(state.stacks));
-        return null;
+        return state.arm;
     }
 
     // Finds the height of an label in the given stack.

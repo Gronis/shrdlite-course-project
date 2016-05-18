@@ -244,8 +244,10 @@ module Planner {
         var label1 = literal.args[0];
         var stacks = state.stacks;
         var arm = state.arm;
+        if (isLitTrue(literal, state)) return 0;
 
         function stepsBetween(l1 : string, l2: string){
+          if (l1 == "floor" || l2 == "floor") return 0;
           var si1 = l1 == state.holding? arm :Interpreter.findStack(l1, state);
           var si2 = l2 == state.holding? arm :Interpreter.findStack(l2, state);
           return Math.abs(si1 - si2);
@@ -262,7 +264,7 @@ module Planner {
         function costToExpose(label : string){
             // More sofisticated calculation for floor
             if (label == state.holding) return 0;
-            if (label == "floor")       return 1;
+            if (label == "floor")       return 0;
             var stackIndex = Interpreter.findStack(label, state);
             var stack = stacks[stackIndex];
             var heightLabel1 = Interpreter.findHeight(label1, stack);
@@ -284,7 +286,7 @@ module Planner {
           case "ontop":
             return Math.min(costMovingTo(label1), costMovingTo(label2)) +
                    stepsBetween(label1, label2) + 1 +
-                   costToExpose(label1) + costToExpose(label2);
+                   Math.min(costToExpose(label1),costToExpose(label2));
           case "beside":
             return Math.min(costMovingTo(label1) + costToExpose(label1),
                             costMovingTo(label2) + costToExpose(label2)) +
