@@ -1,3 +1,5 @@
+///<reference path="lib/collections.ts"/>
+///<reference path="Interpreter.ts"/>
 
 // Interface definitions for worlds
 
