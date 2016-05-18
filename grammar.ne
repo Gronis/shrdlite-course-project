@@ -35,7 +35,7 @@ function R(obj) {
 
 ## Grammar rules
 
-main --> will_you:? please:? command please:?  {% R(2) %}  
+main --> will_you:? please:? command please:?  {% R(2) %}
 
 command --> take entity           {% R({command:"take", entity:1}) %}
 command --> move  it    location  {% R({command:"put", location:2}) %}
@@ -65,7 +65,7 @@ relation --> ("right" "of" | "to" "the" "right" "of")  {% R("rightof") %}
 relation --> ("inside" | "in" | "into")  {% R("inside") %}
 relation --> ("on" | "on" "top" "of")    {% R("ontop") %}
 relation --> ("under" | "below")         {% R("under") %}
-relation --> ("beside")                  {% R("beside") %}
+relation --> ("beside" | "next" "to")      {% R("beside") %}
 relation --> ("above")                   {% R("above") %}
 
 size --> ("small" | "tiny")  {% R("small") %}

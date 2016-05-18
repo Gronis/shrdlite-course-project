@@ -261,14 +261,31 @@ module Planner {
             return Math.abs(arm - stackIndex);
         }
 
-        function costToExpose(label : string){
+        function costToExpose(label : string) : number{
             // More sofisticated calculation for floor
             if (label == state.holding) return 0;
-            if (label == "floor")       return 0;
+            if (label == "floor") return costToExposeFloor();
             var stackIndex = Interpreter.findStack(label, state);
             var stack = stacks[stackIndex];
             var heightLabel1 = Interpreter.findHeight(label1, stack);
-            return 4 * (stack.length - 1 - heightLabel1);
+            return 4 * (stack.length - heightLabel1) - 1;
+        }
+
+        function costToExposeFloor() : number{
+            var stacks = state.stacks;
+            var cost = Infinity;
+            for (var i = 0; i < stacks.length; i++){
+                var stackCost = Math.abs(arm - i) +
+                                4 * stacks[i].length - 1;
+                if (stackCost < cost) cost = stackCost;
+            }
+            return cost + state.holding == null? 0 : 1;
+        }
+
+        function isInSameStack(l1 : string, l2 : string){
+            var si1 = l1 == state.holding ? arm : Interpreter.findStack(l1, state);
+            var si2 = l2 == state.holding ? arm : Interpreter.findStack(l2, state);
+            return si1 == si2
         }
 
         if(literal.relation == "holding"){
@@ -286,7 +303,9 @@ module Planner {
           case "ontop":
             return Math.min(costMovingTo(label1), costMovingTo(label2)) +
                    stepsBetween(label1, label2) + 1 +
-                   Math.min(costToExpose(label1),costToExpose(label2));
+                   (isInSameStack(label1, label2) ?
+                       Math.max(costToExpose(label1),costToExpose(label2)) :
+                       costToExpose(label1) + costToExpose(label2));
           case "beside":
             return Math.min(costMovingTo(label1) + costToExpose(label1),
                             costMovingTo(label2) + costToExpose(label2)) +
