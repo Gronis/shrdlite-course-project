@@ -114,13 +114,9 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var putdown = cmd.entity == undefined;
         var pickup = cmd.location == undefined;
         var relation = pickup ? "holding" : cmd.location.relation;
-
-        //Null check?
-        var movableQuantifier : string = cmd.entity.quantifier;
+        var movableQuantifier : string = putdown? "any" : cmd.entity.quantifier;
         var locationQuantifier : string =
           pickup ? undefined : cmd.location.entity.quantifier;
-        console.log("movableQuantifier: " + movableQuantifier)
-        console.log("locationQuantifier: " + locationQuantifier)
 
         var getMovingLables = function() {
             return matchObject(labels, cmd.entity.object, state);
@@ -263,9 +259,11 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             interpretation = conjunctionToDisjunction(conjunction);
 
           } else if(relation == "holding") {
+            console.log("In relation holding")
             if(movableLabels.length > 1) {
               throw "I can only hold one object."
             } else {
+              var ml = movableLabels[0];
               var lit : Literal =
                 {polarity: true, relation: relation, args: [ml]};
                 interpretation.push([lit]);
@@ -318,25 +316,25 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             //Convert to DNF before returning.
             interpretation = conjunctionToDisjunction(conjunction);
 
-          }
-        } else {
-          for (var i = movableLabels.length - 1; i >= 0; i--) {
-              var ml = movableLabels[i];
-              if (relation == "holding") {
-                var lit : Literal = {polarity:true, relation: relation,
-                    args: [ml]};
-                interpretation.push([lit]);
-              } else {
-                  for (var j = relatableLabels.length - 1; j >= 0; j--) {
-                      var rl = relatableLabels[j];
-                      if (isPhysicallyCorrect(ml, rl, relation, state)){
-                        var lit : Literal = {polarity:true, relation: relation,
-                            args: [ml, rl]};
-                        //Add disjunction to formula.
-                        interpretation.push([lit]);
-                      }
-                  }
-              }
+          } else {
+            for (var i = movableLabels.length - 1; i >= 0; i--) {
+                var ml = movableLabels[i];
+                if (relation == "holding") {
+                  var lit : Literal = {polarity:true, relation: relation,
+                      args: [ml]};
+                  interpretation.push([lit]);
+                } else {
+                    for (var j = relatableLabels.length - 1; j >= 0; j--) {
+                        var rl = relatableLabels[j];
+                        if (isPhysicallyCorrect(ml, rl, relation, state)){
+                          var lit : Literal = {polarity:true, relation: relation,
+                              args: [ml, rl]};
+                          //Add disjunction to formula.
+                          interpretation.push([lit]);
+                        }
+                    }
+                }
+            }
           }
         }
 
