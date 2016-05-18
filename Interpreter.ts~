@@ -224,7 +224,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         // TODO: Difference between messages
         var difference = "";
         for(var labelIndex in labels){
-            var object : Parser.Object = state.objects[labels[labelIndex]];
+            var object : Parser.Object = state.objects[labelIndex];
 		console.log("Label: " + labels[0]);
 	    console.log("Objektet var: " + object);
             message += object.form;
