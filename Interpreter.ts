@@ -110,17 +110,24 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
 
         var command : Parser.Command;
 
+        /* Checks if the message is a response to a followup question. */
         if(cmd.command.split[0].toLowerCase() == "the"){
+            if(state.previousResults == null){
+                throw "I beg your pardon?";
+            }
+
             var object : Parser.Object;
-            var formula = state.previousResults.getValue(cmd.command.split[1].toLowerCase());
+            var formula = state.previousResults.
+                getValue(cmd.command.split[1].toLowerCase());
             if(formula != null){
                 state.previousResults = null;
                 return formula;
             }else{
-                throw "I beg your pardon?";
+                throw "Still not sure which one you mean.";
             }
         }
 
+        // Clear previous results if the user ignored the followup question.
         state.previousResults = null;
 
         // A label is a string id referencing an object in the world
@@ -156,13 +163,18 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             relatableLabels = getRelatedLabels();
         }
 
+        /* If ambigous object */
         if(cmd.entity.quantifier == "the" && movableLabels.length > 1){
             state.previousResults =
-                getDividedDNFFormula(movableLabels, relatableLabels,relation,
-                    movableQuantifier, locationQuantifier, state);
+                getDividedDNFFormula(movableLabels, relatableLabels,true,
+                    relation,movableQuantifier, locationQuantifier, state);
             throw clarificationMessage(movableLabels,state);
-        }if(cmd.location.entity.quantifier == "the" && relatableLabels.length > 1){
-            //state.previousResults = getDividedDNFFormula(relatableLabels,movableLabels);
+        }
+        /* If ambigous location */
+        if(cmd.location.entity.quantifier == "the" && relatableLabels.length > 1){
+            state.previousResults =
+                getDividedDNFFormula(movableLabels, relatableLabels,false,relation,
+                    movableQuantifier, locationQuantifier, state);
             throw clarificationMessage(relatableLabels,state);
         }
 
@@ -170,9 +182,11 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
            movableQuantifier, locationQuantifier, state);
     }
 
+    /* Creates a map from object ids to DNFFormulas. */
     function getDividedDNFFormula(
         labels1      : string[],
         labels2    : string[],
+        ambiguousObject : boolean,
         relation           : string,
         movableQuantifier  : string,
         locationQuantifier : string,
@@ -183,10 +197,18 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
 
             var map : collections.Dictionary<string,DNFFormula> =
                 new collections.Dictionary<string,DNFFormula>();
-
-            for(var label of labels1){
-                newFormula.setValue(label,
-                    (getDNFFormula([label],labels2,relation,movableQuantifier,locationQuantifier, state)));
+            if(ambiguousObject){
+                for(var label of labels1){
+                    newFormula.setValue(findDifference(label,labels2,state),
+                        (getDNFFormula([label],labels2,relation,
+                            movableQuantifier,locationQuantifier, state)));
+                }
+            }else{
+                for(var label of labels2){
+                    newFormula.setValue(label,
+                        (getDNFFormula(labels1,[label],relation,
+                            movableQuantifier,locationQuantifier, state)));
+                }
             }
 
             return newFormula;
@@ -201,11 +223,51 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             var object : Parser.Object = state.objects[labelIndex];
             message += object.form;
             if(labelIndex < labels.length - 1){
-                message += difference + " or the ";
+                message += findDifference(labels[labelIndex],labels,state) + " or the ";
             }
         }
         message += "?";
         return message;
+    }
+
+    /* Determines the difference between a given object and all other given objects */
+    function findDifference(label : string,
+                            labels : string[],
+                            state : WorldState) : string
+    {
+
+        var object = state.objects[label];
+        var uniqueSize = true;
+        var uniqueForm = true;
+        var uniqueColor = true;
+        var difference = "";
+        for(var label of labels){
+            var compareObject = state.objects[label];
+            if(compareObject != object){
+                if(object.size == compareObject.size){
+                    uniqueSize = false;
+                }
+                if(object.form == compareObject.form){
+                    uniqueForm = false;
+                }
+                if(object.color == compareObject.color){
+                    uniqueColor = false;
+                }
+            }
+        }
+
+        if(uniqueSize)
+            difference += object.size;
+        if(uniqueForm)
+            difference += object.form;
+        if(uniqueColor)
+            difference += object.color;
+
+        if(difference.length < 1){
+            // TODO: add location difference instead.
+        }
+
+        return difference;
     }
 
     /**
