@@ -133,6 +133,14 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         } else if(pickup){
             movableLabels = getMovingLables();
         } else{
+            var obj = cmd.entity.object;
+            var location = cmd.location.entity.object;
+            if((movableQuantifier == "all" && locationQuantifier == "all") &&
+              ( (obj.form == location.form && obj.form != "anyform") ||
+                (obj.size == location.size && obj.size != null) ||
+                (obj.color == location.color && obj.color != null) )) {
+                throw "This is not physically possible."
+            }
             movableLabels = getMovingLables()
             relatableLabels = getRelatedLabels();
         }
@@ -160,18 +168,112 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         // We cannot move or pick up the floor
         movableLabels = movableLabels.filter((label) => label != "floor");
 
-        /* TODO: Make generic so it can build both conjunctions and
-        disjunctions? Or just create the Literal in the loop and push
-        directly. No need for function.*/
-        function push(args : string[]){
-            var lit: Literal = {
-                polarity: true,
-                relation: relation,
-                args: args
-            };
-            interpretation.push([lit]);
+        function disjunctionToString(disjunction: Literal[]): string {
+          var str : string = "";
+          for(var k = 0; k < disjunction.length; k++) {
+            str += stringifyLiteral(disjunction[k]);
+            if(k != disjunction.length -1) {
+              str += " | "
+            }
+          }
+          return str;
         }
 
+        function conjunctionToString(conjunction: Literal[]): string {
+          var str : string = "";
+          for(var k = 0; k < conjunction.length; k++) {
+            str += stringifyLiteral(conjunction[k]);
+            if(k != conjunction.length - 1) {
+              str += " & "
+            }
+          }
+          return str;
+        }
+
+        /* Combines all labels from two lists to create a disjunction of all
+        combinations. */
+        function buildDisjunction(
+            labels1: string[], labels2: string[]) : DNFFormula {
+          var dnf : DNFFormula = [];
+          for (var i = 0; i < labels1.length; i++) {
+            var l1 = labels1[i];
+            for(var j = 0; j < labels2.length; j++) {
+              var l2 = labels2[j];
+                if(isPhysicallyCorrect(l1, l2, relation, state)) {
+                  var lit : Literal = {polarity: true, relation: relation,
+                    args: [l1, l2]};
+                  dnf.push([lit]);
+                }
+            }
+          }
+          return dnf;
+        }
+
+        function cnfToString(cnf : Literal[][]) : string {
+          var str = "";
+          for(var i = 0; i < cnf.length; i++) {
+            var disjunction : Literal[] = cnf[i];
+            for(var j = 0; j < disjunction.length; j++) {
+              var lit : Literal = disjunction[j];
+              str += stringifyLiteral(lit);
+              if(j != disjunction.length - 1)
+                str += " | ";
+            }
+            if(i != cnf.length - 1)
+              str += " & "
+          }
+          return str;
+        }
+
+        function buildCNF(
+            labels1: string[], labels2: string[], reversedLocation: boolean)
+              : Literal[][] {
+          var cnf : Literal[][] = [];
+          for(var i = 0; i < labels1.length; i++) {
+            var l1 = labels1[i];
+            var disjunction : Literal[] = [];
+            for(var j = 0; j < labels2.length; j++) {
+              var l2 = labels2[j];
+              if(reversedLocation) {
+                if(isPhysicallyCorrect(l2, l1, relation, state)) {
+                  var lit : Literal =
+                      {polarity: true, relation: relation, args: [l2, l1]};
+                  disjunction.push(lit);
+                }
+
+              } else {
+                if(isPhysicallyCorrect(l1, l2, relation, state)) {
+                  var lit : Literal =
+                      {polarity: true, relation: relation, args: [l1, l2]};
+                  disjunction.push(lit);
+                }
+              }
+            }
+            if(disjunction.length > 0)
+              cnf.push(disjunction);
+          }
+          return cnf;
+        }
+
+        /* Combines all labels from two lists to create a conjunction of all
+        combinations. */
+        function buildConjunction(
+            labels1: string[], labels2: string[]) : Conjunction {
+
+          var conjunction : Conjunction = [];
+          for(var i = 0; i < labels1.length; i++) {
+            var l1 = labels1[i];
+            for(var j = 0; j < labels2.length; j++) {
+              var l2 = labels2[j];
+              if(isPhysicallyCorrect(l1, l2, relation, state)) {
+                var lit : Literal = {polarity: true, relation: relation,
+                  args: [l1, l2]};
+                conjunction.push(lit);
+              }
+            }
+          }
+          return conjunction;
+        }
 
         function conjunctionToDisjunction(
           conjunction : Literal[][]) : DNFFormula {
@@ -180,7 +282,6 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             dfs(0, formula);
 
             function dfs(i: number, formula: Literal[]) {
-
               if (i < conjunction.length) {
                 for (var j = 0; j < conjunction[i].length; j++) {
                   var formulaClone: Literal[] = [];
@@ -234,118 +335,55 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         //Moving every every object of some type
         if(movableQuantifier == "all") {
           //To any location of some type.
-          //Build conjunction of disjunctions.
           if(locationQuantifier == "any") {
-            var conjunction : Literal[][] = [];
-            //Build disjunction
-            for(var i = 0; i < movableLabels.length; i++) {
-              var disjunction : Literal[] = [];
-              var ml = movableLabels[i];
-              for(var j = 0; j < relatableLabels.length; j++) {
-                var rl = relatableLabels[j];
-                if(isPhysicallyCorrect(ml, rl, relation, state)) {
-                  var lit : Literal = {polarity: true, relation: relation,
-                    args: [ml, rl]};
-                  disjunction.push(lit);
-                }
-              }
-              //Build conjunction of disjunctions
-              if(disjunction.length > 0) conjunction.push(disjunction);
-            }
-            console.log(conjunction.map((literals) =>
-                literals.map(Interpreter.stringifyLiteral).sort().join(" | "))
-                .sort().join(" & "));
-            //Convert to DNF before returning.
-            interpretation = conjunctionToDisjunction(conjunction);
-
+            var cnf : Literal[][] = [];
+            //Build conjunction of disjunctions and convert to DNF.
+            cnf = buildCNF(movableLabels, relatableLabels, false);
+            interpretation = conjunctionToDisjunction(cnf);
           } else if(relation == "holding") {
-            console.log("In relation holding")
             if(movableLabels.length > 1) {
               throw "I can only hold one object."
             } else {
+              //If only one such object exists, pick it up.
               var ml = movableLabels[0];
               var lit : Literal =
                 {polarity: true, relation: relation, args: [ml]};
                 interpretation.push([lit]);
             }
-
           } else {
             //To a specific location or in relation to all objects of some type
-            //Build conjunction formula.
-            var formula : Literal[] = [];
-            for (var i = movableLabels.length - 1; i >= 0; i--) {
-                var ml = movableLabels[i];
-                for (var j = relatableLabels.length - 1; j >= 0; j--) {
-                    var rl = relatableLabels[j];
-                    if (isPhysicallyCorrect(ml, rl, relation, state)){
-                        var lit : Literal = {polarity:true, relation: relation,
-                            args: [ml, rl]};
-                        //Add conjunction till formula.
-                        formula.push(lit);
-                    }
-                }
-            }
-            interpretation.push(formula);
-
+            var conj : Conjunction
+              = buildConjunction(movableLabels, relatableLabels);
+            interpretation.push(conj);
           }
-          //Move any, or a specific object of some type
-        } else if(movableQuantifier == "any" || movableQuantifier == "the") {
-          //To
+        }
+        //Move any, or a specific object of some type
+        else if(movableQuantifier == "any" || movableQuantifier == "the") {
           if(locationQuantifier == "all") {
-            var conjunction: Literal[][] = [];
-            //Build disjunction
-            for (var j = 0; j < relatableLabels.length; j++) {
-              var disjunction: Literal[] = [];
-              var rl = relatableLabels[j];
-              for (var i = 0; i < movableLabels.length; i++) {
-                var ml = movableLabels[i];
-                if (isPhysicallyCorrect(ml, rl, relation, state)) {
-                  var lit: Literal = {
-                    polarity: true, relation: relation,
-                    args: [ml, rl]
-                  };
-                  disjunction.push(lit);
-                }
-              }
-              //Build conjunction of disjunctions
-              if (disjunction.length > 0) conjunction.push(disjunction);
-            }
-            console.log(conjunction.map((literals) =>
-              literals.map(Interpreter.stringifyLiteral).sort()
-              .join(" | ")).sort().join(" & "));
+            //Build conjunction of disjunctions
+            var cnf: Literal[][] = [];
+            cnf = buildCNF(relatableLabels, movableLabels, true);
             //Convert to DNF before returning.
-            interpretation = conjunctionToDisjunction(conjunction);
+            interpretation = conjunctionToDisjunction(cnf);
 
+            //Build disjunction
           } else {
-            for (var i = movableLabels.length - 1; i >= 0; i--) {
-                var ml = movableLabels[i];
-                if (relation == "holding") {
-                  var lit : Literal = {polarity:true, relation: relation,
-                      args: [ml]};
+              if(relation == "holding") {
+                for(var i = 0; i < movableLabels.length; i++) {
+                  var ml = movableLabels[i];
+                  var lit : Literal =
+                      {polarity: true, relation: relation, args: [ml]};
                   interpretation.push([lit]);
-                } else {
-                    for (var j = relatableLabels.length - 1; j >= 0; j--) {
-                        var rl = relatableLabels[j];
-                        if (isPhysicallyCorrect(ml, rl, relation, state)){
-                          var lit : Literal = {polarity:true, relation: relation,
-                              args: [ml, rl]};
-                          //Add disjunction to formula.
-                          interpretation.push([lit]);
-                        }
-                    }
                 }
-            }
+              } else {
+                var dnf = buildDisjunction(movableLabels, relatableLabels);
+                interpretation = dnf;
+              }
           }
         }
 
         if (interpretation.length == 0) {
             throw "No interpretation was found";
-        } else if (movableQuantifier == "the" && interpretation.length > 1) {
-            /* TODO: Do something funny here. Throw exception and catch in
-             interpretCommand? Or just check the same condition after call
-             to getDNF in interpretCommand? */
-             //throw "ambiguous result";
-            return interpretation;
         } else {
             return interpretation;
         }
@@ -487,6 +525,11 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var s1 = object1.size;
         var s2 = object2.size;
         var result = label1 != label2;
+
+        /* TODO: Vart kasta exceptions för att säga att någon regel bröts?
+        Om vi kastar istället för att returnera false här så avbryts interpetation
+        efter första exception. Även om en senare match skulle vara korrekt.
+        (vid any) */
         switch (relation) {
             case "inside":
                 if (f2 != "box")
