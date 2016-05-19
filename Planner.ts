@@ -310,8 +310,8 @@ module Planner {
         var labels = Array.prototype.concat.apply([], state.stacks);
         if (state.holding != null) labels.push(state.holding);
         var checks = [ {size: null, color: null, form: obj.form},
-                       {size: obj.size, color : null, form : obj.form},
                        {size: null, color : obj.color, form : obj.form},
+                       {size: obj.size, color : null, form : obj.form},
                        {size: obj.size, color : obj.color, form : obj.form} ];
         function stringify(c : ObjectDefinition) : string{
             return (c.size == null? "" : (c.size + " ")) +
@@ -325,6 +325,12 @@ module Planner {
         }
         // cannot find an individual object based on size, color and form
         return stringify(checks[3]);
+    }
+
+    function concatStrings(list : string[], concats : string[]) {
+        for(var concat of concats) {
+            list.push(concat);
+        }
     }
 
     /**
@@ -368,14 +374,43 @@ module Planner {
         }
 
         var result = aStarSearch(graph, startNode, goal, heuristics, 10);
-
-        for(var r of result.path){
-            plan.push(r.action);
-            var label = r.state.holding;
-            if (r.action == "p"){
-                plan.push("Moving the " + minimalInfo(label, state));
+        var pickup : boolean = false;
+        var movements : string[] = [];
+        for(var i = 0; i < result.path.length; i++){
+            var node = result.path[i];
+            var action = node.action;
+            if (action == "p"){
+                movements.push(node.action);
+                pickup = true;
+                if(result.path.length == i + 1) {
+                    var label = node.state.holding;
+                    plan.push("Picking up the " + minimalInfo(label, state) + ".");
+                    concatStrings(plan,movements);
+                }
+            } else if (action == "d") {
+                var stack = node.state.stacks[node.state.arm];
+                var label1 = stack[stack.length - 1];
+                var label2 = stack.length < 2 ? "floor" : stack[stack.length - 2];
+                var form2 = label2 == "floor" ? null : state.objects[label2].form;
+                var inon = form2 == "box" ? " in " : " on "
+                if(pickup) {
+                    plan.push("Moving the " + minimalInfo(label1, state) + " to the " + minimalInfo(label2, state) + ".");
+                    concatStrings(plan,movements);
+                    movements = [];
+                    plan.push(action);
+                    pickup = false;
+                } else {
+                    plan.push("Putting the " + minimalInfo(label1, state) + inon + "the " + minimalInfo(label2,state) + ".");
+                    concatStrings(plan,movements);
+                    movements = [];
+                    plan.push(action);
+                }
+            } else {
+                movements.push(action);
             }
         }
         return plan;
     }
+
+
 }
