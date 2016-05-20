@@ -380,11 +380,7 @@ module Planner {
 
         var result = aStarSearch(graph, startNode, goal, heuristics, 10);
         var pickup : boolean = false;
-        for(var i = 0; i < result.path.length; i++){
-            var node = result.path[i];
-            plan.push(node.action);
-        }
-        /*var movements : string[] = [];
+        var movements : string[] = [];
         for(var i = 0; i < result.path.length; i++){
             var node = result.path[i];
             var action = node.action;
@@ -417,7 +413,7 @@ module Planner {
             } else {
                 movements.push(action);
             }
-        }*/
+        }
         return plan;
     }
 }
