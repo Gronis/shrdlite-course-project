@@ -132,17 +132,22 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             relatableLabels = getRelatedLabels();
         } else if(pickup){
             movableLabels = getMovingLables();
-        } else{
-            var obj = cmd.entity.object;
-            var location = cmd.location.entity.object;
-            if((movableQuantifier == "all" && locationQuantifier == "all") &&
-              ( (obj.form == location.form && obj.form != "anyform") ||
-                (obj.size == location.size && obj.size != null) ||
-                (obj.color == location.color && obj.color != null) )) {
-                throw "This is not physically possible."
-            }
+        } else {
             movableLabels = getMovingLables()
             relatableLabels = getRelatedLabels();
+            console.log("Movable: ")
+            console.log(movableLabels)
+            console.log("Relatable: ")
+            console.log(relatableLabels)
+            //Check if parse is valid and filter any objects is need to make the
+            //parse physically possible to perform.
+            var updatedLabels = validparse(cmd, movableLabels, relatableLabels, state)
+            movableLabels = updatedLabels.movableLabels;
+            relatableLabels = updatedLabels.relatableLabels;
+            console.log("Filtered movable: ")
+            console.log(movableLabels)
+            console.log("Filtered relatble: ")
+            console.log(relatableLabels)
         }
 
         return getDNFFormula(movableLabels, relatableLabels, relation,
@@ -305,33 +310,6 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             return dnf;
         }
 
-        if(movableLabels.length == 0) {
-          throw "Could not find any matching object."
-        }
-
-        //Only one object can be inside/ontop of another one, unless floor.
-        if(movableQuantifier == "all" &&
-            (relation == "ontop" || relation == "inside") &&
-            !(relatableLabels.length == 1 && relatableLabels[0] == "floor")) {
-          /* TODO: Add the form of destination object instead of "locations"*/
-          if(locationQuantifier == "all") {
-            throw "This is just silly."
-          } else if(locationQuantifier == "the") {
-            throw "There can only be one object ontop/inside another object."
-          } else if(relatableLabels.length < movableLabels.length) {
-            throw "There are not enough locations for this."
-          }
-        }
-
-        //Cannot put an object insde/ontop of every destination location if
-        //there are less objects to move than desination locations.
-        if(locationQuantifier == "all" &&
-            (relation == "ontop" || relation == "inside") &&
-            movableLabels.length < relatableLabels.length) {
-              /* TODO: Add form of object instead of "objects" */
-              throw "There are not enough objects for this."
-        }
-
         //Moving every every object of some type
         if(movableQuantifier == "all") {
           //To any location of some type.
@@ -405,7 +383,9 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
      * @param The state of the world
      * @returns A subset of param labels, such that they match the target
      */
-    function matchObject(labels : string[], target : Parser.Object, state: WorldState) : string[]{
+    function matchObject(
+      labels : string[], target : Parser.Object, state: WorldState) : string[]{
+
         var possibleTargets : string[] = [];
         var continueRecursivly = target.object != undefined;
 
@@ -424,7 +404,9 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         return possibleTargets;
     }
 
-    export function filterLabels(labels : string[], size: string, color : string, form : string, state : WorldState) : string[]{
+    export function filterLabels(labels : string[], size: string,
+      color : string, form : string, state : WorldState) : string[]{
+
       var filteredLabels: string[] = [];
       for (var i = labels.length - 1; i >= 0; i--) {
         var label = labels[i];
@@ -576,5 +558,126 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                 break;
         }
         return result;
+    }
+
+    //Checks if a given parse if physically correct and filters impossible
+    //objects from movableLabels and relatableLabels.
+    function validparse(cmd : Parser.Command, movableLabels : string[],
+        relatableLabels : string[], state : WorldState) :
+          {movableLabels: string[], relatableLabels : string[]} {
+
+          var obj = (cmd.entity.object.object == null) ? cmd.entity.object : cmd.entity.object.object;
+          var destinationObject = findDestinationObject(cmd);
+          var movableQuantifier = cmd.entity.quantifier;
+          var locationQuantifier = cmd.location.entity.quantifier;
+          var relation = cmd.location.relation;
+
+          //These parses are not physically possible to perform in any world state.
+          if(relation == "inside" && destinationObject.form != "box") {
+            throw "Objects can only be inside boxes."
+          }
+          if((movableQuantifier == "all" || locationQuantifier == "all") &&
+            ( (obj.form == destinationObject.form && obj.form != "anyform") ||
+            (obj.size == destinationObject.size && obj.size != null) ||
+            (obj.color == destinationObject.color && obj.color != null) )) {
+            throw "This is not physically possible."
+          }
+          //Only one object can be inside/ontop of another one, unless floor.
+          if(movableQuantifier == "all" &&
+              (relation == "ontop" || relation == "inside") &&
+              !(relatableLabels.length == 1 && relatableLabels[0] == "floor")) {
+            if(locationQuantifier == "all") {
+              throw "This is just silly, how would I do this?"
+            } else if(locationQuantifier == "the") {
+              var rel = "";
+              switch(relation) {
+                case "ontop":
+                  throw "There can only be one object on top of another object.";
+                case "inside":
+                  throw "A box can only fit one object."
+              }
+            } else if(relatableLabels.length < movableLabels.length) {
+              throw "There are not enough locations for this."
+            }
+          }
+
+          //These are dependent on the world state.
+          if(movableLabels.length == 0) {
+            throw "Could not find any matching object to move."
+          }
+
+          //Cannot put an object insde/ontop of every destination location if
+          //there are less objects to move than desination locations.
+          if(locationQuantifier == "all" &&
+              (relation == "ontop" || relation == "inside") &&
+              movableLabels.length < relatableLabels.length) {
+                throw "There are too few objects to move for this."
+          }
+
+          var mq = movableQuantifier;
+          var lq = locationQuantifier;
+          for(var i = 0; i < movableLabels.length; i++) {
+            var ml = movableLabels[i];
+            var objDef = getObjectDefinition(ml, state);
+            var rel = "";
+            switch(relation) {
+              case "leftof":
+                rel = "to the left of";
+                break;
+              case "rightof":
+                rel = "to the right of";
+                break;
+              case "inside" || "ontop" || "above" || "under":
+                rel = cmd.location.relation
+                break;
+            }
+            for(var j = 0; j < relatableLabels.length; j++) {
+              var rl = relatableLabels[j];
+              if(ml == rl && mq == "any" && lq == "all") {
+                movableLabels =
+                  movableLabels.filter((label) => label != ml);
+                if(movableLabels.length == 0) {
+                  throw "I cannot put the " + objDef.size + " " +
+                    objDef.color + " "+ objDef.form + " " + rel + " itself."
+                }
+              }
+              if(ml == rl && mq == "all" && lq =="any") {
+                console.log(movableLabels)
+                console.log(relatableLabels)
+                relatableLabels = relatableLabels.filter((label) => label != rl);
+                console.log("Efter filter:")
+                console.log(relatableLabels)
+                if(relatableLabels.length == 0) {
+                  throw "I cannot put the " + objDef.size + " " +
+                    objDef.color + " "+ objDef.form + " " + rel + " itself."
+                }
+              }
+              if( (ml == rl) &&
+                  ( (mq == "the" && lq == "all") ||
+                    (mq == "all" && (lq == "the" || lq == "all")) )) {
+                      throw "I cannot put the " + objDef.size + " " +
+                        objDef.color + " "+ objDef.form + " " + rel + " itself."
+              }
+            }
+          }
+          return {movableLabels, relatableLabels}
+    }
+
+    function getObjectDefinition(label : string, state : WorldState)
+        : ObjectDefinition {
+      var object = state.objects[label];
+      var objDef : ObjectDefinition =
+          {form: object.form, color: object.color, size: object.size}
+      return objDef;
+    }
+
+    //Must only be used for "move", NOT pickup or putdown
+    function findDestinationObject(cmd: Parser.Command) : Parser.Object {
+      if(cmd.location.entity.object.object == undefined) {
+        var endLocation  = cmd.location.entity.object;
+      } else {
+        var endLocation = cmd.location.entity.object.object;
+      }
+      return endLocation;
     }
 }
