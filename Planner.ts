@@ -228,9 +228,7 @@ module Planner {
         if (isLitTrue(literal, state)) return 0;
         var label1 = literal.args[0];
         if(literal.relation == "holding")
-            return costToExpose(label1) + costMovingTo(label1) + 1;
-        var stacks = state.stacks;
-        var arm = state.arm;
+            return costMovingTo(label1) + costToExpose(label1) + 1;
         var label2 = literal.args[1];
 
         function stepsBetween(l1 : string, l2: string){
@@ -240,29 +238,36 @@ module Planner {
         }
 
         function costMovingTo(label : string){
+            var arm = state.arm;
             if (label == state.holding) return 0;
-            var stackIndex = label == "floor" ? indexOfFloor() :  Interpreter.findStack(label, state);
+            var stackIndex = label == "floor" ? indexOfFloor() : Interpreter.findStack(label, state);
             return Math.abs(arm - stackIndex);
         }
 
         function costToExpose(label : string) : number{
             if (label == state.holding) return 0;
             var stacks = state.stacks;
-            if (label == "floor")
-                return 4 * stacks[indexOfFloor()].length + state.holding == null ? -1 : 0;
+            if (label == "floor"){
+                var base = 4 * stacks[indexOfFloor()].length;
+                return base + (base == 0 ? 0 : -1) + (state.holding == null ? 0 : 1);
+            }
             var stackIndex = Interpreter.findStack(label, state);
             var stack = stacks[stackIndex];
-            var heightLabel1 = Interpreter.findHeight(label1, stack);
-            return 4 * (stack.length - heightLabel1) - 1;
+            var heightLabel = Interpreter.findHeight(label, stack);
+            var base = 4 * (stack.length - 1 - heightLabel);
+            return base + (base == 0 ? 0 : -1) + (state.holding == null ? 0 : 1);
         }
 
         // Finds the stack index where the floor is easiest to access from the
         // arm's current location.
         function indexOfFloor() : number{
+            var stacks = state.stacks;
+            var arm = state.arm
             var cost = Infinity;
             var index = -1;
             for (var i = 0; i < stacks.length; i++){
-                var stackCost = Math.abs(arm - i) + 4 * stacks[i].length - 1;
+                var base = 4 * stacks[i].length;
+                var stackCost = Math.abs(arm - i) + base + (base == 0 ? 0 : -1) + (state.holding == null ? 0 : 1);
                 if (stackCost < cost){
                     cost = stackCost;
                     index = i;
@@ -411,6 +416,4 @@ module Planner {
         }
         return plan;
     }
-
-
 }
