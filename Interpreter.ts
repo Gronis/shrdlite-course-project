@@ -390,11 +390,11 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var continueRecursivly = target.object != undefined;
 
         if(continueRecursivly){
-            var rel = target.location.relation;
+            var rel  = target.location.relation;
             var obj1 = target.object;
             var obj2 = target.location.entity.object;
             var quantifier = target.location.entity.quantifier;
-            validateRelation(obj1, obj2, rel, quantifier);
+            //validateRelation(obj1, obj2, rel, quantifier);
             var matchingObjs = matchObject(labels, target.object, state);
             for (var j = 0; j < matchingObjs.length; j++){
                 var matchingObj = matchingObjs[j];
@@ -406,13 +406,68 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
           return filterLabels(labels, target.size,
                  target.color, target.form, state);
         }
-        return possibleTargets;
+        if(possibleTargets.length == 0) {
+          var f1 = (obj1.form == "anyform")? "object " : obj1.form + " ";
+          if(quantifier == "all") {
+            var f2 = getPlural(obj2.form);
+          } else {
+              var f2 = (obj2.form == "anyform")? "object " : obj2.form + " ";
+          }
+          var s1 = (obj1.size == undefined)? "" : obj1.size + " ";
+          var s2 = (obj2.size == undefined)? "" : obj2.size + " ";
+          var c1 = (obj1.color == undefined)? "" : obj1.color + " ";
+          var c2 = (obj2.color == undefined)? "" : obj2.color + " ";
+          var prettyRel = "";
+          switch(rel) {
+            case "inside":
+              prettyRel = "inside of "
+              break;
+            case "ontop":
+              prettyRel = "on top of "
+              break;
+            case "leftof":
+              prettyRel = "to the left of "
+              break;
+            case "rightof":
+              prettyRel = "to the right of "
+              break;
+            case "under" || "above":
+              prettyRel = rel + " ";
+              break;
+
+          }
+            throw "There is no " + s1 + c1 + f1 + prettyRel + quantifier + " " + s2 + c2 + f2 + "."
+        } else {
+            return possibleTargets;
+        }
+    }
+
+    function getPlural(form : string) : string {
+      switch(form) {
+        case "anyform":
+          return "objects"
+        case "box":
+          return "boxes";
+        case "ball":
+          return "balls";
+        case "pyramid":
+          return "pyramids";
+        case "table":
+          return "tables";
+        case "brick":
+          return "bricks";
+        case "plank":
+          return "planks";
+        default:
+          return form + "s";
+      }
     }
 
     /* Throws an error if the relation between object1 and object2 breaks any
     physical laws. */
     function validateRelation(object1 : Parser.Object, object2 : Parser.Object,
         rel : string, quantifier : string) {
+
           var f1 = object1.form;
           var f2 = object2.form;
           var s1 = object1.size;
