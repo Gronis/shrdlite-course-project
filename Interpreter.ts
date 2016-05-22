@@ -132,22 +132,26 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             relatableLabels = getRelatedLabels();
         } else if(pickup){
             movableLabels = getMovingLables();
+            if(movableLabels.length == 0) {
+              var obj = cmd.entity.object;
+              var form = (obj.form == "anyform") ? "object" : obj.form;
+              var col = (obj.color == undefined) ? "" : obj.color + " ";
+              var size = (obj.size == undefined) ? "" : obj.size + " ";
+              throw "There is no " + size + col + form + ".";
+            }
+            if(movableQuantifier == "all" && movableLabels.length > 1) {
+              throw "I can only hold one object."
+            }
         } else {
             movableLabels = getMovingLables()
             relatableLabels = getRelatedLabels();
-            console.log("Movable: ")
-            console.log(movableLabels)
-            console.log("Relatable: ")
-            console.log(relatableLabels)
+
             //Check if parse is valid and filter any objects is need to make the
             //parse physically possible to perform.
-            var updatedLabels = validparse(cmd, movableLabels, relatableLabels, state)
+            var updatedLabels = validateParse(cmd, movableLabels, relatableLabels, state)
             movableLabels = updatedLabels.movableLabels;
             relatableLabels = updatedLabels.relatableLabels;
-            console.log("Filtered movable: ")
-            console.log(movableLabels)
-            console.log("Filtered relatble: ")
-            console.log(relatableLabels)
+            /*TODO: Ta ut de faktiska */
         }
 
         return getDNFFormula(movableLabels, relatableLabels, relation,
@@ -319,15 +323,11 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             cnf = buildCNF(movableLabels, relatableLabels, false);
             interpretation = conjunctionToDisjunction(cnf);
           } else if(relation == "holding") {
-            if(movableLabels.length > 1) {
-              throw "I can only hold one object."
-            } else {
               //If only one such object exists, pick it up.
               var ml = movableLabels[0];
               var lit : Literal =
                 {polarity: true, relation: relation, args: [ml]};
                 interpretation.push([lit]);
-            }
           } else {
             //To a specific location or in relation to all objects of some type
             var conj : Conjunction
@@ -390,6 +390,11 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var continueRecursivly = target.object != undefined;
 
         if(continueRecursivly){
+            var rel = target.location.relation;
+            var obj1 = target.object;
+            var obj2 = target.location.entity.object;
+            var quantifier = target.location.entity.quantifier;
+            validateRelation(obj1, obj2, rel, quantifier);
             var matchingObjs = matchObject(labels, target.object, state);
             for (var j = 0; j < matchingObjs.length; j++){
                 var matchingObj = matchingObjs[j];
@@ -402,6 +407,57 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                  target.color, target.form, state);
         }
         return possibleTargets;
+    }
+
+    /* Throws an error if the relation between object1 and object2 breaks any
+    physical laws. */
+    function validateRelation(object1 : Parser.Object, object2 : Parser.Object,
+        rel : string, quantifier : string) {
+          var f1 = object1.form;
+          var f2 = object2.form;
+          var s1 = object1.size;
+          var s2 = object2.size;
+          //console.log("validateRelation: " + s1 + " " + f1 + " " + rel + " " + quantifier + " " + s2 + " " + f2)
+          switch(rel) {
+            case "inside":
+              if(f2 != "box") {
+                throw "An object can only be inside of a box."
+              }
+              if ((f1 == "box" || f1 == "pyramid" || f1 == "plank") &&
+                  (s2 == s1 || s2 == "small"))
+                  throw "Boxes can only a " + f1 + " of smaller size than itself."
+              if (s2 == "small" && s1 == "large")
+                  throw "Small boxes cannot contain large objects."
+              if(quantifier == "all") {
+                var obj = (f1 == "anyform") ? "object" : f1;
+                throw "A " + obj + " that is inside of several boxes, this is not physically possible."
+              }
+              break;
+            case "ontop":
+              if (f2 == "box") {
+                  var tempF = (f1 == "anyform")? "Objects" : "A " + f1;
+                  throw tempF +" cannot be on top of a box, only inside it."
+              }
+              if (s2 == "small" && s1 == "large") {
+                  var tempF2 = (f2 == "anyform")? "objects" : f2 + "s";
+                  var tempF1 = (f1 == "anyform")? "objects" : f1 + "s";
+                  throw "Small " + tempF2 + " cannot support large " + tempF1 + "."
+              }
+              if (f2 == "ball")
+                  throw "Balls cannot support other objects."
+              if (f1 == "ball" && f2 != "floor" && f2 != "box")
+                  throw "Balls must be in boxes or on the floor."
+              if (s1 == "small" && f1 == "box" && s2 == "small" &&
+                  (f2 == "brick" || f2 == "pyramid"))
+                  throw "Small boxes cannot be supported by small bricks or pyramids."
+              if (s1 == "large" && f1 == "box" &&
+                  s2 == "large" && f2 == "pyramid")
+                  throw "Large boxes cannot be supported by large pyramids."
+              if(quantifier == "all") {
+                throw "An object can only be directly on top of one other object."
+              }
+              break;
+          }
     }
 
     export function filterLabels(labels : string[], size: string,
@@ -432,18 +488,30 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
       if (state.holding == label) return false;
       var stacks = state.stacks;
       var objectsToCheck : string[] = [];
+
+      /*If the quantifier is "all", there cannot be any object in this which
+      fullfils the relation. i.e if an object is supposed to be to the left of
+      all red objects there cannot be any red objects to the left of itself.*/
+      var objectsToClear : string[] = [];
       var stackIndex = findStack(label, state);
       var stack = stacks[stackIndex];
       var height = findHeight(label, stack);
+      var quantifier = location.entity.quantifier;
       switch(location.relation){
           case "leftof":
               for (var i = stackIndex + 1; i < stacks.length; i++) {
                 objectsToCheck = objectsToCheck.concat(stacks[i]);
               }
+              for (var i = 0; i <= stackIndex; i++) {
+                objectsToClear = objectsToClear.concat(stacks[i]);
+              }
               break;
           case "rightof":
               for (var i = 0; i < stackIndex; i++){
                 objectsToCheck = objectsToCheck.concat(stacks[i]);
+              }
+              for( var i = stackIndex; i < stacks.length; i++) {
+                objectsToClear = objectsToClear.concat(stacks[i]);
               }
               break;
           case "inside":
@@ -462,6 +530,9 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               for (var i = height + 1; i < stack.length; i++) {
                   objectsToCheck.push(stack[i]);
               }
+              for (var i = 0; i <= height; i++) {
+                  objectsToClear.push(stack[i]);
+              }
               break;
           case "beside":
               if(stackIndex > 0){
@@ -475,9 +546,18 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               for (var i = 0; i < height; i++) {
                 objectsToCheck.push(stack[i]);
               }
+              for (var i = height; i < stack.length; i++) {
+                objectsToClear.push(stack[i]);
+              }
               break;
       }
-      return matchObject(objectsToCheck,location.entity.object,state).length>0;
+      if(quantifier == "all") {
+        return matchObject(objectsToClear, location.entity.object, state).length == 0 &&
+        matchObject(objectsToCheck, location.entity.object, state).length > 0;
+
+      } else {
+          return matchObject(objectsToCheck,location.entity.object,state).length>0;
+      }
     }
 
     // Finds which stack the object is in.
@@ -561,8 +641,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
     }
 
     //Checks if a given parse if physically correct and filters impossible
-    //objects from movableLabels and relatableLabels.
-    function validparse(cmd : Parser.Command, movableLabels : string[],
+    //objects from movableLabels and relatableLabels if possible.
+    function validateParse(cmd : Parser.Command, movableLabels : string[],
         relatableLabels : string[], state : WorldState) :
           {movableLabels: string[], relatableLabels : string[]} {
 
@@ -600,7 +680,6 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               throw "There are not enough locations for this."
             }
           }
-
           //These are dependent on the world state.
           if(movableLabels.length == 0) {
             throw "Could not find any matching object to move."
@@ -613,7 +692,14 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               movableLabels.length < relatableLabels.length) {
                 throw "There are too few objects to move for this."
           }
+          //Does the relation between the object to be moved and the destination
+          //object break any physical law?
+          validateRelation(obj, destinationObject, relation, locationQuantifier);
 
+          //Check for cases where movable or location quantifier is "all" and
+          //some objects is in both sets. Filter these objects if possible, or
+          //throw exception.
+          /*TODO: Egen funktion */
           var mq = movableQuantifier;
           var lq = locationQuantifier;
           for(var i = 0; i < movableLabels.length; i++) {
@@ -642,11 +728,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                 }
               }
               if(ml == rl && mq == "all" && lq =="any") {
-                console.log(movableLabels)
-                console.log(relatableLabels)
                 relatableLabels = relatableLabels.filter((label) => label != rl);
-                console.log("Efter filter:")
-                console.log(relatableLabels)
                 if(relatableLabels.length == 0) {
                   throw "I cannot put the " + objDef.size + " " +
                     objDef.color + " "+ objDef.form + " " + rel + " itself."
@@ -663,6 +745,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
           return {movableLabels, relatableLabels}
     }
 
+    //Returns the ObjectDefinition given a label identifier.
     function getObjectDefinition(label : string, state : WorldState)
         : ObjectDefinition {
       var object = state.objects[label];
