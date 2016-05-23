@@ -93,6 +93,11 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         return (lit.polarity ? "" : "-") + lit.relation + "(" + lit.args.join(",") + ")";
     }
 
+
+    var preMovableLabels: string[] = [];
+    var preRelatableLabels: string[] = [];
+    var preRelation: string;
+
     //////////////////////////////////////////////////////////////////////
     // private functions
     /**
@@ -107,48 +112,44 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
      * @returns A list of list of Literal, representing a formula in disjunctive normal form (disjunction of conjunctions). See the dummy interpetation returned in the code for an example, which means ontop(a,floor) AND holding(b).
      */
     function interpretCommand(cmd : Parser.Command, state : WorldState) : DNFFormula {
-
-        var command : Parser.Command;
-	console.log("The command was: " + cmd.command);
-        /* Checks if the message is a response to a followup question. */
-        if(cmd.command == "the"){
-            if(state.previousResults == null){
-                throw "I beg your pardon?";
-            }
-
-            var object : Parser.Object;
-            var formula = state.previousResults.
-                getValue(cmd.command.split[1].toLowerCase());
-            if(formula != null){
-                state.previousResults = null;
-                return formula;
-            }else{
-                throw "Still not sure which one you mean.";
-            }
-        }
-
-        // Clear previous results if the user ignored the followup question.
-        state.previousResults = null;
-
         // A label is a string id referencing an object in the world
         var labels = Array.prototype.concat.apply(["floor"], state.stacks);
-        var movableLabels : string[] = [];
-        var relatableLabels : string[] = [];
-        var putdown = cmd.entity == undefined;
+        var movableLabels: string[] = [];
+        var relatableLabels: string[] = [];
+        var command = cmd.command;
+        var putdown = cmd.entity == undefined || preRelation == "";
         var pickup = cmd.location == undefined;
         var relation = pickup ? "holding" : cmd.location.relation;
 
+        console.log("The command was: " + command);
+	      console.log("Pre relation: " + preRelation);
+        /* Checks if the message is a response to a followup question. */
+        if (command == "specification") {
+            if (preRelation == null) {
+                throw "I beg your pardon?";
+            }
+            relation = preRelation;
+        }
+
         //Null check?
-        var movableQuantifier : string = cmd.entity.quantifier;
+        var movableQuantifier : string = putdown? "any": cmd.entity.quantifier;
         var locationQuantifier : string = pickup ? undefined : cmd.location.entity.quantifier;
         console.log("movableQuantifier: " + movableQuantifier)
         console.log("locationQuantifier: " + locationQuantifier)
 
         var getMovingLables = function() {
-            return matchObject(labels, cmd.entity.object, state);
+            if (preRelation != null && preMovableLabels.length > 1) {
+                return matchObject(preMovableLabels, cmd.entity.object, state);
+            } else {
+                return matchObject(labels, cmd.entity.object, state);
+            }
         };
         var getRelatedLabels = function() {
-            return matchObject(labels, cmd.location.entity.object, state);
+            if (preRelation != null && preRelatableLabels.length > 1) {
+                return matchObject(preRelatableLabels,cmd.entity.object,state);
+            } else {
+                return matchObject(labels, cmd.location.entity.object, state);
+            }
         };
 
         if (state.holding != null) labels.push(state.holding);
@@ -163,22 +164,22 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             relatableLabels = getRelatedLabels();
         }
 
-
+        console.log("pre ml: " + JSON.stringify(preMovableLabels));
+        console.log("pre rl: " + JSON.stringify(preRelatableLabels));
+        preMovableLabels = movableLabels;
+        preRelatableLabels = relatableLabels;
+        console.log("ml : " + JSON.stringify(movableLabels));
+        console.log("rl : " + JSON.stringify(relatableLabels));
         /* If ambigous object */
-        if(cmd.entity.quantifier == "the" && movableLabels.length > 1){
-		console.log("The entity was: " + cmd.entity.quantifier + " for the object");
-            state.previousResults =
-                getDividedDNFFormula(movableLabels, relatableLabels,true,
-                    relation,movableQuantifier, locationQuantifier, state);
+        if(cmd.entity != undefined && cmd.entity.quantifier == "the" && movableLabels.length > 1){
+            preRelation = relation;
             throw clarificationMessage(movableLabels,state);
         }
-//	console.log("The location entity was: " + cmd.location.entity + " for the location");
-//	console.log(cmd.location.entity != undefined);
+//  console.log("The location entity was: " + cmd.location.entity + " for the location");
+//  console.log(cmd.location.entity != undefined);
         /* If ambigous location */
         if(cmd.location != undefined && cmd.location.entity.quantifier == "the" && relatableLabels.length > 1){
-            state.previousResults =
-                getDividedDNFFormula(movableLabels, relatableLabels,false,relation,
-                    movableQuantifier, locationQuantifier, state);
+            preRelation = relation;
             throw clarificationMessage(relatableLabels,state);
         }
 
@@ -223,13 +224,13 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var message = "Did you mean the ";
         // TODO: Difference between messages
         var difference = "";
-        for(var labelIndex in labels){
-            var object : Parser.Object = state.objects[labels[labelIndex]];
+        for (var i = 0; i < labels.length; i++){
+            var object : Parser.Object = state.objects[labels[i]];
 		console.log("Label: " + labels[0]);
 	    console.log("Objektet var: " + object);
             message += object.form;
-            if(labelIndex < labels.length - 1){
-                message += findDifference(labels[labelIndex],labels,state) + " or the ";
+            if(i < labels.length - 1){
+                message += findDifference(labels[i],labels,state) + " or the ";
             }
         }
         message += "?";

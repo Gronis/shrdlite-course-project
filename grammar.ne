@@ -40,6 +40,7 @@ main --> will_you:? please:? command please:?  {% R(2) %}
 command --> take entity           {% R({command:"take", entity:1}) %}
 command --> move  it    location  {% R({command:"put", location:2}) %}
 command --> move entity location  {% R({command:"move", entity:1, location:2}) %}
+command --> entity                {% R({command:"specification", entity:0}) %}
 
 location --> relation entity  {% R({relation:0, entity:1}) %}
 
@@ -84,7 +85,7 @@ formPL --> form "s"  {% R(0) %}
 formSG --> "box"    {% R("box") %}
 formPL --> "boxes"  {% R("box") %}
 
-form --> ("object" | "thing" | "form")  {% R("anyform") %}
+form --> ("object" | "thing" | "form" | "one")  {% R("anyform") %}
 form --> "brick"    {% R("brick") %}
 form --> "plank"    {% R("plank") %}
 form --> "ball"     {% R("ball") %}
