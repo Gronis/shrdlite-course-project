@@ -57,6 +57,8 @@ module Shrdlite {
             world.printDebugInfo("Found " + parses.length + " parses");
             parses.forEach((result, n) => {
                 world.printDebugInfo("  (" + n + ") " + Parser.stringify(result));
+                /* TODO: if parses.length > 1 nånting */
+                console.log("PrettyParse: " + Parser.intelligentStringify(result));
             });
         }
         catch(err) {

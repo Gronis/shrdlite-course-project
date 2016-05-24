@@ -406,37 +406,22 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
           return filterLabels(labels, target.size,
                  target.color, target.form, state);
         }
+        /* TODO: Gör om för att använda Parser.minimalDescription.*/
         if(possibleTargets.length == 0) {
           var f1 = (obj1.form == "anyform")? "object " : obj1.form + " ";
           if(quantifier == "all") {
-            var f2 = getPlural(obj2.form);
+            var q = quantifier;
+            var v = "are";
           } else {
-              var f2 = (obj2.form == "anyform")? "object " : obj2.form + " ";
+            var q = "a";
+            var v = "is"
           }
-          var s1 = (obj1.size == undefined)? "" : obj1.size + " ";
-          var s2 = (obj2.size == undefined)? "" : obj2.size + " ";
-          var c1 = (obj1.color == undefined)? "" : obj1.color + " ";
-          var c2 = (obj2.color == undefined)? "" : obj2.color + " ";
-          var prettyRel = "";
-          switch(rel) {
-            case "inside":
-              prettyRel = "inside of "
-              break;
-            case "ontop":
-              prettyRel = "on top of "
-              break;
-            case "leftof":
-              prettyRel = "to the left of "
-              break;
-            case "rightof":
-              prettyRel = "to the right of "
-              break;
-            case "under" || "above":
-              prettyRel = rel + " ";
-              break;
+          var description1 : string = Parser.minimalDescription(obj1, quantifier);
+          var description2 : string = Parser.minimalDescription(obj2, quantifier);
+          var prettyRel = Parser.prettifyRelation(rel);
 
-          }
-            throw "There is no " + s1 + c1 + f1 + prettyRel + quantifier + " " + s2 + c2 + f2 + "."
+            throw "There " + v + " no " + description1 + " " + prettyRel + " " +
+                q + " " + description2 + "."
         } else {
             return possibleTargets;
         }
