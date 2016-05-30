@@ -30,6 +30,8 @@ interface WorldState {
     objects: { [s:string]: ObjectDefinition; };
     /** List of predefined example sentences/utterances that the user can choose from in the UI. */
     examples: string[];
+
+    ambigousParses? : Parser.ParseResult[];
 }
 
 type Stack = string[];
