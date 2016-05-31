@@ -56,11 +56,16 @@ module Shrdlite {
         var firstWord = utterance.split(" ")[0];
         var enteredNumber : number = Number(firstWord);
         if(world.currentState.ambigousParses &&
-            !isNaN(enteredNumber) &&
-            enteredNumber <= world.currentState.ambigousParses.length ) {
-            var parses : Parser.ParseResult[] = [];
-            parses.push(world.currentState.ambigousParses[enteredNumber - 1]);
-            world.printSystemOutput("Ok, you want me to " + Parser.intelligentStringify(parses[0]));
+            !isNaN(enteredNumber)) {
+            if(enteredNumber <= world.currentState.ambigousParses.length &&
+            enteredNumber > 0) {
+              var parses : Parser.ParseResult[] = [];
+              parses.push(world.currentState.ambigousParses[enteredNumber - 1]);
+              world.printSystemOutput("Ok, you want me to " + Parser.intelligentStringify(parses[0]));
+            } else {
+              world.printSystemOutput("Sorry, but " + enteredNumber + " was not one of the options I gave you. Please choose the number of the utterance you had in mind or give me new instructions.")
+              return;
+            }
         } else {
           try {
               var parses : Parser.ParseResult[] = Parser.parse(utterance);
