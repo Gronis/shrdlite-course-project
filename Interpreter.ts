@@ -137,6 +137,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             relation = preRelation;
             pickup = false;
             putdown = false;
+        } else{
+            preRelation = null;
         }
         var isAmbigous = preRelation != null;
 
@@ -237,61 +239,101 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
     }
 
     /* Builds a clarification message for the user. */
-    function clarificationMessage(labels : string[], state : WorldState) : string {
-        var message = "Did you mean the ";
+    function clarificationMessage(labels: string[], state: WorldState): string {
+        var message = "Do you mean the ";
         // TODO: Difference between messages
         var difference = "";
-        for (var i = 0; i < labels.length; i++){
-            var object : Parser.Object = state.objects[labels[i]];
-		console.log("Label: " + labels[0]);
-	    console.log("Objektet var: " + object);
-            message += object.form;
-            if(i < labels.length - 1){
-                message += findDifference(labels[i],labels,state) + " or the ";
+        for (var labelIndex = 0; labelIndex < labels.length; labelIndex++) {
+            var object: Parser.Object = state.objects[labels[labelIndex]];
+            message += findDifference(labels[labelIndex], labels, state);
+            if (labelIndex < labels.length - 1) {
+                message += " or the ";
             }
         }
-        message += "?";
+
+        message += " " + findSimilarities(labels, false, state) + "?";
         return message;
     }
 
     /* Determines the difference between a given object and all other given objects */
-    function findDifference(label : string,
-                            labels : string[],
-                            state : WorldState) : string
-    {
+    function findDifference(label: string,
+        labels: string[],
+        state: WorldState): string {
+
+        if (labels.length > 2) {
+            throw "There are " + labels.length + " " + findSimilarities(labels, true, state) + ", which one do you mean?";
+        }
 
         var object = state.objects[label];
-        var uniqueSize = true;
-        var uniqueForm = true;
-        var uniqueColor = true;
+
+        var uniqueAttributes = {
+            size: true,
+            color: true,
+            form: true
+        }
+
+        /* Greedy, tries the size as unique and finds out if uniquely
+         * identifiable. Else proceedes by adding the next one... */
+
         var difference = "";
-        for(var label of labels){
+        for (var label of labels) {
             var compareObject = state.objects[label];
-            if(compareObject != object){
-                if(object.size == compareObject.size){
-                    uniqueSize = false;
+            if (compareObject != object) {
+                if (object.form == compareObject.form) {
+                    uniqueAttributes.form = false;
                 }
-                if(object.form == compareObject.form){
-                    uniqueForm = false;
+                if (object.color == compareObject.color) {
+                    uniqueAttributes.color = false;
                 }
-                if(object.color == compareObject.color){
-                    uniqueColor = false;
+                if (object.size == compareObject.size) {
+                    uniqueAttributes.size = false;
                 }
             }
         }
 
-        if(uniqueSize)
-            difference += object.size;
-        if(uniqueForm)
-            difference += object.form;
-        if(uniqueColor)
-            difference += object.color;
+        if (uniqueAttributes.form)
+            return difference += object.form;
+        if (uniqueAttributes.color)
+            return difference += object.color;
+        if (uniqueAttributes.size)
+            return difference += object.size;
 
-        if(difference.length < 1){
-            // TODO: add location difference instead.
+        throw "Something went wrong, no difference found.";
+    }
+
+    function findSimilarities(labels: string[],
+                              plural : boolean,
+                              state: WorldState): string {
+        var sameForm = true;
+        var sameColor = true;
+        var sameSize = true;
+        var obj1 = state.objects[labels[0]];
+        var message = "";
+        for (var label of labels) {
+            var obj2 = state.objects[label];
+            if(obj1.form != obj2.form){
+                sameForm = false;
+            }
+            if(obj1.color != obj2.color){
+                sameColor = false;
+            }
+            if(obj1.size != obj2.size){
+                sameSize = false;
+            }
         }
-
-        return difference;
+        if(sameSize){
+            message += obj1.size + " ";
+        }
+        if(sameColor){
+            message += obj1.color + " ";
+        }
+        if(sameForm){
+            message += obj1.form;
+        } else{
+            message += "object";
+        }
+        if (plural) message += "s"; //TODO: switch to plural function in Parser
+        return message;
     }
 
     /**
