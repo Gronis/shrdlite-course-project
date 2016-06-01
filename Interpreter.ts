@@ -650,14 +650,14 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
           var f2 = object2.form;
           var s1 = object1.size;
           var s2 = object2.size;
-          //console.log("validateRelation: " + s1 + " " + f1 + " " + rel + " " + quantifier + " " + s2 + " " + f2)
+          console.log("validateRelation: " + s1 + " " + f1 + " " + rel + " " + quantifier + " " + s2 + " " + f2)
           switch(rel) {
             case "inside":
               if(f2 != "box") {
                 throw "An object can only be inside of a box."
               }
               if ((f1 == "box" || f1 == "pyramid" || f1 == "plank") &&
-                  (s2 == s1 || s2 == "small"))
+                  (s2 == s1 || s2 == "small") && (s1 != null || s2 != null))
                   throw "Boxes can only contain a " + f1 + " of smaller size than itself."
               if (s2 == "small" && s1 == "large")
                   throw "Small boxes cannot contain large objects."
