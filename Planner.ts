@@ -414,6 +414,7 @@ module Planner {
                 movements.push(action);
             }
         }
+        plan.push("What else can I do for you?");
         return plan;
     }
 }
