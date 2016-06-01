@@ -122,14 +122,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var relation = pickup ? "holding" : cmd.location.relation;
 
         console.log("The command was: " + command);
-	      console.log("Pre relation: " + preRelation);
-        /* Checks if the message is a response to a followup question. */
-        if (command == "specification") {
-            if (preRelation == null) {
-                throw "I beg your pardon?";
-            }
-            relation = preRelation;
-        }
+        console.log("Pre relation: " + preRelation);
 
         //Null check?
         var movableQuantifier : string = putdown? "any": cmd.entity.quantifier;
@@ -137,17 +130,42 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         console.log("movableQuantifier: " + movableQuantifier)
         console.log("locationQuantifier: " + locationQuantifier)
 
+        if (command == "specification") {
+            if (preRelation == null) {
+                throw "I beg your pardon?";
+            }
+            relation = preRelation;
+            pickup = false;
+            putdown = false;
+        }
+        var isAmbigous = preRelation != null;
+
         var getMovingLables = function() {
-            if (preRelation != null && preMovableLabels.length > 1) {
+            var isAmbigous = preRelation != null;
+            if (isAmbigous) {
+              if (preMovableLabels.length > 1) {
                 return matchObject(preMovableLabels, cmd.entity.object, state);
+              } else {
+                return preMovableLabels;
+              }
             } else {
                 return matchObject(labels, cmd.entity.object, state);
             }
         };
         var getRelatedLabels = function() {
-            if (preRelation != null && preRelatableLabels.length > 1) {
+            console.log(preRelation);
+            console.log(preRelatableLabels);
+            var isAmbigous = preRelation != null;
+            if (isAmbigous) {
+              if (preMovableLabels.length <= 1) {
+                  console.log("filter old pre rl")
                 return matchObject(preRelatableLabels,cmd.entity.object,state);
+              } else {
+                  console.log("filter first, do nothing")
+                return preRelatableLabels;
+              }
             } else {
+                console.log("filter all labels rl")
                 return matchObject(labels, cmd.location.entity.object, state);
             }
         };
@@ -170,19 +188,18 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         preRelatableLabels = relatableLabels;
         console.log("ml : " + JSON.stringify(movableLabels));
         console.log("rl : " + JSON.stringify(relatableLabels));
-        /* If ambigous object */
-        if(cmd.entity != undefined && cmd.entity.quantifier == "the" && movableLabels.length > 1){
-            preRelation = relation;
-            throw clarificationMessage(movableLabels,state);
-        }
-//  console.log("The location entity was: " + cmd.location.entity + " for the location");
-//  console.log(cmd.location.entity != undefined);
-        /* If ambigous location */
-        if(cmd.location != undefined && cmd.location.entity.quantifier == "the" && relatableLabels.length > 1){
-            preRelation = relation;
-            throw clarificationMessage(relatableLabels,state);
-        }
 
+        // If ambigous object throw error message
+        if ((cmd.location != undefined && cmd.location.entity.quantifier == "the" || cmd.entity.quantifier == "the" || isAmbigous &&
+            (movableLabels.length > 1 || relatableLabels.length > 1))) {
+            preRelation = relation;
+            if (movableLabels.length > 1) {
+              throw clarificationMessage(movableLabels, state);
+            } else if (relatableLabels.length > 1){
+              throw clarificationMessage(relatableLabels,state);
+            }
+        }
+        preRelation = null;
         return getDNFFormula(movableLabels, relatableLabels, relation,
            movableQuantifier, locationQuantifier, state);
     }
