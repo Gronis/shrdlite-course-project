@@ -149,7 +149,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                 preMovableQuantifier = movableQuantifier;
                 var ls = matchObject(preMovableLabels,cmd.entity.object,state);
                 if(ls.length == 0){
-                  throw "That was not one of the options I asked for. " +
+                  throw "That was not one of the options I gave you. " +
                         preMessage;
                 }
                 return ls;
