@@ -98,6 +98,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
     var preRelatableLabels: string[] = [];
     var preRelation: string;
     var preMessage: string;
+    var preMovableQuantifier: string;
+    var preRelatableQuantifier: string;
 
     //////////////////////////////////////////////////////////////////////
     // private functions
@@ -139,7 +141,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var getMovingLables = function() {
             var wasAmbigous = preRelation != null;
             if (wasAmbigous) {
-              if (preMovableLabels.length > 1) {
+              if (preMovableLabels.length > 1 && preMovableQuantifier=="the") {
+                preMovableQuantifier = movableQuantifier;
                 var ls = matchObject(preMovableLabels,cmd.entity.object,state);
                 if(ls.length == 0){
                   throw "That was not one of the options I asked for. " +
@@ -150,6 +153,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                 return preMovableLabels;
               }
             } else {
+                preMovableQuantifier = movableQuantifier;
                 return matchObject(labels, cmd.entity.object, state);
             }
         };
@@ -158,7 +162,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             console.log(preRelatableLabels);
             var wasAmbigous = preRelation != null;
             if (wasAmbigous) {
-              if (preMovableLabels.length <= 1) {
+              if (preMovableLabels.length <=1 || preMovableQuantifier=="any") {
+                preRelatableQuantifier = movableQuantifier;
                 var ls = matchObject(preRelatableLabels,cmd.entity.object,state);
                 if (ls.length == 0) {
                   throw "That was not one of the options I asked for. " +
@@ -169,6 +174,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                 return preRelatableLabels;
               }
             } else {
+                preRelatableQuantifier = locationQuantifier;
                 return matchObject(labels, cmd.location.entity.object, state);
             }
         };
@@ -213,10 +219,10 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         // If ambigous object throw error message
         if (movableLabels.length > 1 || relatableLabels.length > 1) {
             preRelation = relation;
-            if (movableLabels.length > 1 && movableQuantifier == "the") {
+            if (movableLabels.length > 1 && preMovableQuantifier == "the") {
               preMessage = clarificationMessage(movableLabels, state);
               throw preMessage;
-            } else if (relatableLabels.length > 1 && locationQuantifier == "the") {
+            } else if (relatableLabels.length > 1 && preRelatableQuantifier == "the") {
               preMessage = clarificationMessage(relatableLabels, state);
               throw preMessage;
             }
@@ -567,7 +573,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         }
 
         if (interpretation.length == 0) {
-            throw "No interpretation was found.";
+            throw "I cannot do that.";
         } else {
             return interpretation;
         }
