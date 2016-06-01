@@ -140,7 +140,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               throw "There is no " + size + col + form + ".";
             }
             if(movableQuantifier == "all" && movableLabels.length > 1) {
-              throw "I can only hold one object."
+              throw "I can only hold one object at a time."
             }
         } else {
             movableLabels = getMovingLables()
@@ -361,7 +361,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         }
 
         if (interpretation.length == 0) {
-            throw "No interpretation was found";
+            throw "No interpretation was found.";
         } else {
             return interpretation;
         }
@@ -427,27 +427,6 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         }
     }
 
-    function getPlural(form : string) : string {
-      switch(form) {
-        case "anyform":
-          return "objects"
-        case "box":
-          return "boxes";
-        case "ball":
-          return "balls";
-        case "pyramid":
-          return "pyramids";
-        case "table":
-          return "tables";
-        case "brick":
-          return "bricks";
-        case "plank":
-          return "planks";
-        default:
-          return form + "s";
-      }
-    }
-
     /* Throws an error if the relation between object1 and object2 breaks any
     physical laws. */
     function validateRelation(object1 : Parser.Object, object2 : Parser.Object,
@@ -465,22 +444,23 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               }
               if ((f1 == "box" || f1 == "pyramid" || f1 == "plank") &&
                   (s2 == s1 || s2 == "small"))
-                  throw "Boxes can only a " + f1 + " of smaller size than itself."
+                  throw "Boxes can only contain a " + f1 + " of smaller size than itself."
               if (s2 == "small" && s1 == "large")
                   throw "Small boxes cannot contain large objects."
               if(quantifier == "all") {
-                var obj = (f1 == "anyform") ? "object" : f1;
-                throw "A " + obj + " that is inside of several boxes, this is not physically possible."
+                var obj = (f1 == "anyform") ? "n object" : " " + f1;
+                throw "A" + obj + " cannot be inside of several boxes."
               }
               break;
             case "ontop":
               if (f2 == "box") {
-                  var tempF = (f1 == "anyform")? "Objects" : "A " + f1;
+                  var tempF = Parser.getPlural(f1);
+                  tempF = tempF.charAt(0).toUpperCase() + tempF.slice(1);
                   throw tempF +" cannot be on top of a box, only inside it."
               }
               if (s2 == "small" && s1 == "large") {
-                  var tempF2 = (f2 == "anyform")? "objects" : f2 + "s";
-                  var tempF1 = (f1 == "anyform")? "objects" : f1 + "s";
+                  var tempF1 = Parser.getPlural(f1);
+                  var tempF2 = Parser.getPlural(f2);
                   throw "Small " + tempF2 + " cannot support large " + tempF1 + "."
               }
               if (f2 == "ball")
@@ -636,10 +616,6 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var s2 = object2.size;
         var result = label1 != label2;
 
-        /* TODO: Vart kasta exceptions för att säga att någon regel bröts?
-        Om vi kastar istället för att returnera false här så avbryts interpetation
-        efter första exception. Även om en senare match skulle vara korrekt.
-        (vid any) */
         switch (relation) {
             case "inside":
                 if (f2 != "box")
@@ -694,7 +670,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
 
           //These parses are not physically possible to perform in any world state.
           if(relation == "inside" && destinationObject.form != "box") {
-            throw "Objects can only be inside boxes."
+            throw "Objects can only be inside of boxes."
           }
           if((movableQuantifier == "all" || locationQuantifier == "all") &&
             ( (obj.form == destinationObject.form && obj.form != "anyform") ||
@@ -722,7 +698,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
           }
           //These are dependent on the world state.
           if(movableLabels.length == 0) {
-            throw "Could not find any matching object to move."
+            throw "I could not find any matching object to move."
           }
 
           //Cannot put an object insde/ontop of every destination location if
@@ -739,7 +715,6 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
           //Check for cases where movable or location quantifier is "all" and
           //some objects is in both sets. Filter these objects if possible, or
           //throw exception.
-          /*TODO: Egen funktion */
           var mq = movableQuantifier;
           var lq = locationQuantifier;
           for(var i = 0; i < movableLabels.length; i++) {

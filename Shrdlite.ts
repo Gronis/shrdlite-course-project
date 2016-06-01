@@ -63,7 +63,8 @@ module Shrdlite {
               parses.push(world.currentState.ambigousParses[enteredNumber - 1]);
               world.printSystemOutput("Ok, you want me to " + Parser.intelligentStringify(parses[0]));
             } else {
-              world.printSystemOutput("Sorry, but " + enteredNumber + " was not one of the options I gave you. Please choose the number of the utterance you had in mind or give me new instructions.")
+              world.printSystemOutput("Sorry, but " + enteredNumber +
+                " was not one of the options I gave you. Please choose the number of the utterance you had in mind or give me new instructions.")
               return;
             }
         } else {
@@ -75,7 +76,8 @@ module Shrdlite {
               });
           }
           catch(err) {
-              world.printError("Parsing error", err);
+              world.printSystemOutput("Sorry I cannot understand this, please try again.")
+              //world.printError("Parsing error", err);
               return;
           }
       }
@@ -88,7 +90,7 @@ module Shrdlite {
           world.printSystemOutput(" " + (i + 1) + ": " + Parser.intelligentStringify(parses[i]));
         }
         //Försök nå dropdown. Gör funktion som ändrar den i svgworld.
-        var newPrompt = "Please choose the number of the utterance you had in mind or give me new instructions.";
+        world.printSystemOutput("Please choose the number of the utterance you had in mind or give me new instructions.");
         world.currentState.ambigousParses = parses;
         return;
       }
@@ -109,7 +111,8 @@ module Shrdlite {
             }
         }
         catch(err) {
-            world.printError("Interpretation error", err);
+            //world.printError("Interpretation error", err);
+            world.printSystemOutput("Sorry, I cannot do that. " + err);
             return;
         }
 
@@ -131,7 +134,7 @@ module Shrdlite {
             }
         }
         catch(err) {
-            world.printError("Planning error", err);
+            world.printSystemOutput(err);
             return;
         }
 

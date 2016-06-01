@@ -142,18 +142,8 @@ module Parser {
           return "objects"
         case "box":
           return "boxes";
-        case "ball":
-          return "balls";
-        case "pyramid":
-          return "pyramids";
-        case "table":
-          return "tables";
-        case "brick":
-          return "bricks";
-        case "plank":
-          return "planks";
         default:
-          throw "What is this strange form?"
+          return form + "s";
       }
     }
 
