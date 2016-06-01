@@ -47,6 +47,7 @@ class SearchResult<Node> {
 * @param heuristics The heuristic function. Used to estimate the cost of reaching the goal from a given Node.
 * @param timeout Maximum time (in seconds) to spend performing A\* search.
 * @returns A search result, which contains the path from `start` to a node satisfying `goal` and the cost of this path.
+* @throws An error if no path is found, or if the timeout is exceeded.
 */
 function aStarSearch<Node> (
     graph : Graph<Node>,

@@ -10,10 +10,6 @@
 *
 */
 module Parser {
-
-    //////////////////////////////////////////////////////////////////////
-    // exported functions, classes and interfaces/types
-
     export function parse(input:string) : ParseResult[] {
         var nearleyParser = new nearley.Parser(grammar.ParserRules, grammar.ParserStart);
         var parsestr = input.toLowerCase().replace(/\W/g, "");
@@ -35,8 +31,7 @@ module Parser {
         });
     }
 
-    /** The output type of the parser
-    */
+    /** The output type of the parser */
     export interface ParseResult {
 	/** The input string given by the user. */
         input : string;
@@ -99,13 +94,12 @@ module Parser {
         return JSON.stringify(result.parse);
     }
 
-    //////////////////////////////////////////////////////////////////////
-    // Utilities
-
     function clone<T>(obj: T): T {
         return JSON.parse(JSON.stringify(obj));
     }
 
+    //Returns a string with "that is" in the right place given a parse.
+    //Used when handling certain ambiguities.
     export function intelligentStringify(parse : ParseResult) : string {
       var cmd : Command = parse.parse;
       if(cmd.entity == undefined) {
@@ -119,7 +113,7 @@ module Parser {
         return result + " " + prettifyRelation(cmd.location.relation) + " " +
             entityToString(cmd.location.entity);
       }
-
+      //Recursively builds the string.
       function entityToString(entity : Entity) : string {
         var obj = entity.object.object;
         var objQuantifier = entity.quantifier;
@@ -162,12 +156,11 @@ module Parser {
             case "beside":
               return relation;
             default:
-              console.log(relation)
               throw "I should not be here..."
           }
         }
 
-    //mininmalInfo in planner takes label, need one that only takes object
+    //Returns the minimal description of an object given its object definition.
     export function minimalDescription(object : Object, quantifier : string) : string {
       var size : string = (object.size == undefined)? "" : object.size + " ";
       var color : string = (object.color == undefined)? "" : object.color + " ";
@@ -182,8 +175,6 @@ module Parser {
 
 }
 
-
-//////////////////////////////////////////////////////////////////////
 // TypeScript declarations for external JavaScript modules
 
 declare module "grammar" {

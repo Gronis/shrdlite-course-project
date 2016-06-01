@@ -28,9 +28,6 @@ module Planner {
             try {
                 var result : PlannerResult = <PlannerResult>interpretation;
                 result.plan = planInterpretation(result.interpretation, currentState);
-                if (result.plan.length == 0) {
-                    result.plan.push("That is already true!");
-                }
                 plans.push(result);
             } catch(err) {
                 errors.push(err);
@@ -52,6 +49,11 @@ module Planner {
         return result.plan.join(", ");
     }
 
+    /*
+     * The node that we use in our graph.
+     * Contains the world state of the node
+     * and the action that led there.
+     */
     class SearchNode{
         constructor(state : WorldState, action : string){
             this.state = state;
@@ -61,6 +63,10 @@ module Planner {
         action: string;
     }
 
+    /*
+     * A class to clone a world state.
+     * We use this so that the state of every node is unique.
+     */
     class ClonedWorld implements WorldState{
         constructor(state : WorldState){
             this.stacks = [];
@@ -107,6 +113,10 @@ module Planner {
         examples: string[];
     }
 
+    /*
+     * The graph that we use with A star search.
+     * The graph is built dynamically.
+     */
     class SearchGraph implements Graph<SearchNode>{
         outgoingEdges(node: SearchNode): Edge<SearchNode>[]{
             var state = node.state;
@@ -152,6 +162,7 @@ module Planner {
         }
     }
 
+    //Assuming that the arm is holding an object checks if it can be dropped.
     function canDrop(state: WorldState) : boolean{
         var stack = state.stacks[state.arm];
         var topLabel = stack.length == 0? "floor" : stack[stack.length - 1];
@@ -160,10 +171,15 @@ module Planner {
                isPhysicallyCorrect(state.holding, topLabel, "inside", state);
     }
 
+    //Assuming that the arm is not holding anything checks if it can pick up
+    //something from the stack where the arm is located.
     function canPickup(state: WorldState): boolean{
         return state.stacks[state.arm].length > 0;
     }
 
+    /*
+     * Checks if a literal is true in the given world state.
+     */
     function isLitTrue(literal: Interpreter.Literal, state : WorldState) {
         var label1 = literal.args[0];
         if(literal.relation == "holding"){
@@ -224,7 +240,13 @@ module Planner {
         return !literal.polarity;
     }
 
-    function manhattanDistance(literal :Interpreter.Literal, state:WorldState){
+    /*
+     * Calculates the minimum amount of moves needed to fulfill the given
+     * literal. Takes into consideration the cost of exposing an object
+     * depending on how many objects are above it in the stack.
+     * A move is either r (move right), l (move left), p (pickup), d (drop).
+     */
+    function informedHeuristics(literal :Interpreter.Literal, state:WorldState){
         if (isLitTrue(literal, state)) return 0;
         var label1 = literal.args[0];
         if(literal.relation == "holding")
@@ -309,6 +331,8 @@ module Planner {
         return 0;
     }
 
+    //Given a label finds the minimum unique description of the corresponding
+    //object in the world state.
     function minimalInfo(label: string, state : WorldState) : string{
         if (label == "floor") return label;
         var obj = state.objects[label];
@@ -332,6 +356,7 @@ module Planner {
         return stringify(checks[3]);
     }
 
+    //Concats two lists of strings.
     function concatStrings(list : string[], concats : string[]) {
         for(var concat of concats) {
             list.push(concat);
@@ -344,7 +369,6 @@ module Planner {
      * @returns A plan of movements (l,r,p,d).
      */
     function planInterpretation(interpretation : Interpreter.DNFFormula, state : WorldState) : string[] {
-        var plan : string[] = [];
         var graph: Graph<SearchNode> = new SearchGraph;
         var startNode: SearchNode = new SearchNode(state, null);
 
@@ -366,7 +390,7 @@ module Planner {
             for (var conjunction of interpretation) {
                 var conjunctionHeur = 0;
                 for (var literal of conjunction) {
-                    var heuristic = manhattanDistance(literal, node.state);
+                    var heuristic = informedHeuristics(literal, node.state);
                     if (heuristic > conjunctionHeur) {
                         conjunctionHeur = heuristic;
                     }
@@ -378,6 +402,8 @@ module Planner {
             return disjunctionHeur;
         }
 
+        //Intelligently prints all steps along the way of the plan.
+        var plan : string[] = [];
         var result = aStarSearch(graph, startNode, goal, heuristics, 10);
         var pickup : boolean = false;
         var movements : string[] = [];
