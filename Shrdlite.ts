@@ -75,7 +75,6 @@ module Shrdlite {
           }
           catch(err) {
               world.printSystemOutput("Sorry I cannot understand this, please try again.")
-              //world.printError("Parsing error", err);
               return;
           }
       }
@@ -87,7 +86,7 @@ module Shrdlite {
         for(var i = 0; i < parses.length; i++) {
           world.printSystemOutput(" " + (i + 1) + ": " + Parser.intelligentStringify(parses[i]));
         }
-        //Försök nå dropdown. Gör funktion som ändrar den i svgworld.
+
         world.printSystemOutput("Please choose the number of the utterance you had in mind or give me new instructions.");
         world.currentState.ambigousParses = parses;
         return;
@@ -100,16 +99,8 @@ module Shrdlite {
             interpretations.forEach((result, n) => {
                 world.printDebugInfo("  (" + n + ") " + Interpreter.stringify(result));
             });
-
-            if (interpretations.length > 1) {
-                // several interpretations were found -- how should this be handled?
-                // should we throw an ambiguity error?
-                // ... throw new Error("Ambiguous utterance");
-                // or should we let the planner decide?
-            }
         }
         catch(err) {
-            //world.printError("Interpretation error", err);
             world.printSystemOutput(err);
             return;
         }
@@ -121,15 +112,6 @@ module Shrdlite {
             plans.forEach((result, n) => {
                 world.printDebugInfo("  (" + n + ") " + Planner.stringify(result));
             });
-
-            if (plans.length > 1) {
-                // several plans were found -- how should this be handled?
-                // this means that we have several interpretations,
-                // should we throw an ambiguity error?
-                // ... throw new Error("Ambiguous utterance");
-                // or should we select the interpretation with the shortest plan?
-                // ... plans.sort((a, b) => {return a.length - b.length});
-            }
         }
         catch(err) {
             world.printSystemOutput(err);
