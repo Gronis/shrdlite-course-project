@@ -414,6 +414,9 @@ module Planner {
                 movements.push(action);
             }
         }
+        if(plan.length == 0){
+          plan.push("That is already true!");
+        }
         plan.push("What else can I do for you?");
         return plan;
     }
