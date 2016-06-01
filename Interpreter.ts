@@ -97,6 +97,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
     var preMovableLabels: string[] = [];
     var preRelatableLabels: string[] = [];
     var preRelation: string;
+    var preMessage: string;
 
     //////////////////////////////////////////////////////////////////////
     // private functions
@@ -121,32 +122,30 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var pickup = cmd.location == undefined;
         var relation = pickup ? "holding" : cmd.location.relation;
 
-        console.log("The command was: " + command);
-        console.log("Pre relation: " + preRelation);
-
-        //Null check?
-        var movableQuantifier : string = putdown? "any": cmd.entity.quantifier;
-        var locationQuantifier : string = pickup ? undefined : cmd.location.entity.quantifier;
-        console.log("movableQuantifier: " + movableQuantifier)
-        console.log("locationQuantifier: " + locationQuantifier)
-
         if (command == "specification") {
             if (preRelation == null) {
                 throw "I beg your pardon?";
             }
             relation = preRelation;
-            pickup = false;
-            putdown = false;
+            pickup = preRelation == "holding";
+            putdown = false;//state.holding != undefined;
         } else{
             preRelation = null;
         }
-        var isAmbigous = preRelation != null;
+        var wasAmbigous = preRelation != null;
+        var movableQuantifier : string = putdown? "any": cmd.entity.quantifier;
+        var locationQuantifier: string = pickup ? undefined : wasAmbigous ? cmd.entity.quantifier : cmd.location.entity.quantifier;
 
         var getMovingLables = function() {
-            var isAmbigous = preRelation != null;
-            if (isAmbigous) {
+            var wasAmbigous = preRelation != null;
+            if (wasAmbigous) {
               if (preMovableLabels.length > 1) {
-                return matchObject(preMovableLabels, cmd.entity.object, state);
+                var ls = matchObject(preMovableLabels,cmd.entity.object,state);
+                if(ls.length == 0){
+                  throw "That was not one of the options I asked for. " +
+                        preMessage;
+                }
+                return ls;
               } else {
                 return preMovableLabels;
               }
@@ -157,17 +156,19 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var getRelatedLabels = function() {
             console.log(preRelation);
             console.log(preRelatableLabels);
-            var isAmbigous = preRelation != null;
-            if (isAmbigous) {
+            var wasAmbigous = preRelation != null;
+            if (wasAmbigous) {
               if (preMovableLabels.length <= 1) {
-                  console.log("filter old pre rl")
-                return matchObject(preRelatableLabels,cmd.entity.object,state);
+                var ls = matchObject(preRelatableLabels,cmd.entity.object,state);
+                if (ls.length == 0) {
+                  throw "That was not one of the options I asked for. " +
+                        preMessage;
+                }
+                return ls;
               } else {
-                  console.log("filter first, do nothing")
                 return preRelatableLabels;
               }
             } else {
-                console.log("filter all labels rl")
                 return matchObject(labels, cmd.location.entity.object, state);
             }
         };
@@ -179,9 +180,27 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             relatableLabels = getRelatedLabels();
         } else if(pickup){
             movableLabels = getMovingLables();
-        } else{
+            if(movableLabels.length == 0) {
+              var obj = cmd.entity.object;
+              var form = (obj.form == "anyform") ? "object" : obj.form;
+              var col = (obj.color == undefined) ? "" : obj.color + " ";
+              var size = (obj.size == undefined) ? "" : obj.size + " ";
+              throw "There is no " + size + col + form + ".";
+            }
+            if(movableQuantifier == "all" && movableLabels.length > 1) {
+              throw "I can only hold one object at a time."
+            }
+        } else {
             movableLabels = getMovingLables()
             relatableLabels = getRelatedLabels();
+
+            //Check if parse is valid and filter any objects is need to make the
+            //parse physically possible to perform.
+            if(!wasAmbigous){
+                var updatedLabels = validateParse(cmd, movableLabels, relatableLabels, state)
+                movableLabels = updatedLabels.movableLabels;
+                relatableLabels = updatedLabels.relatableLabels;
+            }
         }
 
         console.log("pre ml: " + JSON.stringify(preMovableLabels));
@@ -192,13 +211,14 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         console.log("rl : " + JSON.stringify(relatableLabels));
 
         // If ambigous object throw error message
-        if ((cmd.location != undefined && cmd.location.entity.quantifier == "the" || cmd.entity.quantifier == "the" || isAmbigous &&
-            (movableLabels.length > 1 || relatableLabels.length > 1))) {
+        if (movableLabels.length > 1 || relatableLabels.length > 1) {
             preRelation = relation;
-            if (movableLabels.length > 1) {
-              throw clarificationMessage(movableLabels, state);
-            } else if (relatableLabels.length > 1){
-              throw clarificationMessage(relatableLabels,state);
+            if (movableLabels.length > 1 && movableQuantifier == "the") {
+              preMessage = clarificationMessage(movableLabels, state);
+              throw preMessage;
+            } else if (relatableLabels.length > 1 && locationQuantifier == "the") {
+              preMessage = clarificationMessage(relatableLabels, state);
+              throw preMessage;
             }
         }
         preRelation = null;
@@ -251,7 +271,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             }
         }
 
-        message += " " + findSimilarities(labels, false, state) + "?";
+        message += "?";
         return message;
     }
 
@@ -261,7 +281,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         state: WorldState): string {
 
         if (labels.length > 2) {
-            throw "There are " + labels.length + " " + findSimilarities(labels, true, state) + ", which one do you mean?";
+            preMessage = "There are " + labels.length + " " + findSimilarities(labels, true, state) + ", which one do you mean?";
+            throw preMessage;
         }
 
         var object = state.objects[label];
@@ -294,9 +315,9 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         if (uniqueAttributes.form)
             return difference += object.form;
         if (uniqueAttributes.color)
-            return difference += object.color;
+            return difference += object.color + " " + object.form;
         if (uniqueAttributes.size)
-            return difference += object.size;
+            return difference += object.size + " " + object.form;
 
         throw "Something went wrong, no difference found.";
     }
@@ -328,11 +349,18 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             message += obj1.color + " ";
         }
         if(sameForm){
-            message += obj1.form;
+            if(plural){
+              message += Parser.getPlural(obj1.form)
+            } else {
+              message += obj1.form;
+            }
         } else{
-            message += "object";
+            if(plural){
+              message += "objects";
+            } else {
+              message += "object";
+            }
         }
-        if (plural) message += "s"; //TODO: switch to plural function in Parser
         return message;
     }
 
@@ -355,26 +383,120 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         // We cannot move or pick up the floor
         movableLabels = movableLabels.filter((label) => label != "floor");
 
-        /* TODO: Make generic so it can build both conjunctions and
-        disjunctions? Or just create the Literal in the loop and push
-        directly. No need for function.*/
-        function push(args : string[]){
-            var lit: Literal = {
-                polarity: true,
-                relation: relation,
-                args: args
-            };
-            interpretation.push([lit]);
+        function disjunctionToString(disjunction: Literal[]): string {
+          var str : string = "";
+          for(var k = 0; k < disjunction.length; k++) {
+            str += stringifyLiteral(disjunction[k]);
+            if(k != disjunction.length -1) {
+              str += " | "
+            }
+          }
+          return str;
         }
 
+        function conjunctionToString(conjunction: Literal[]): string {
+          var str : string = "";
+          for(var k = 0; k < conjunction.length; k++) {
+            str += stringifyLiteral(conjunction[k]);
+            if(k != conjunction.length - 1) {
+              str += " & "
+            }
+          }
+          return str;
+        }
 
-        function conjunctionToDisjunction(conjunction : Literal[][]) : DNFFormula {
+        /* Combines all labels from two lists to create a disjunction of all
+        combinations. */
+        function buildDisjunction(
+            labels1: string[], labels2: string[]) : DNFFormula {
+          var dnf : DNFFormula = [];
+          for (var i = 0; i < labels1.length; i++) {
+            var l1 = labels1[i];
+            for(var j = 0; j < labels2.length; j++) {
+              var l2 = labels2[j];
+                if(isPhysicallyCorrect(l1, l2, relation, state)) {
+                  var lit : Literal = {polarity: true, relation: relation,
+                    args: [l1, l2]};
+                  dnf.push([lit]);
+                }
+            }
+          }
+          return dnf;
+        }
+
+        function cnfToString(cnf : Literal[][]) : string {
+          var str = "";
+          for(var i = 0; i < cnf.length; i++) {
+            var disjunction : Literal[] = cnf[i];
+            for(var j = 0; j < disjunction.length; j++) {
+              var lit : Literal = disjunction[j];
+              str += stringifyLiteral(lit);
+              if(j != disjunction.length - 1)
+                str += " | ";
+            }
+            if(i != cnf.length - 1)
+              str += " & "
+          }
+          return str;
+        }
+
+        function buildCNF(
+            labels1: string[], labels2: string[], reversedLocation: boolean)
+              : Literal[][] {
+          var cnf : Literal[][] = [];
+          for(var i = 0; i < labels1.length; i++) {
+            var l1 = labels1[i];
+            var disjunction : Literal[] = [];
+            for(var j = 0; j < labels2.length; j++) {
+              var l2 = labels2[j];
+              if(reversedLocation) {
+                if(isPhysicallyCorrect(l2, l1, relation, state)) {
+                  var lit : Literal =
+                      {polarity: true, relation: relation, args: [l2, l1]};
+                  disjunction.push(lit);
+                }
+
+              } else {
+                if(isPhysicallyCorrect(l1, l2, relation, state)) {
+                  var lit : Literal =
+                      {polarity: true, relation: relation, args: [l1, l2]};
+                  disjunction.push(lit);
+                }
+              }
+            }
+            if(disjunction.length > 0)
+              cnf.push(disjunction);
+          }
+          return cnf;
+        }
+
+        /* Combines all labels from two lists to create a conjunction of all
+        combinations. */
+        function buildConjunction(
+            labels1: string[], labels2: string[]) : Conjunction {
+
+          var conjunction : Conjunction = [];
+          for(var i = 0; i < labels1.length; i++) {
+            var l1 = labels1[i];
+            for(var j = 0; j < labels2.length; j++) {
+              var l2 = labels2[j];
+              if(isPhysicallyCorrect(l1, l2, relation, state)) {
+                var lit : Literal = {polarity: true, relation: relation,
+                  args: [l1, l2]};
+                conjunction.push(lit);
+              }
+            }
+          }
+          return conjunction;
+        }
+
+        function conjunctionToDisjunction(
+          conjunction : Literal[][]) : DNFFormula {
             var dnf : DNFFormula = [];
             var formula : Literal [] = [];
             dfs(0, formula);
 
             function dfs(i: number, formula: Literal[]) {
-
               if (i < conjunction.length) {
                 for (var j = 0; j < conjunction[i].length; j++) {
                   var formulaClone: Literal[] = [];
@@ -398,121 +520,54 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             return dnf;
         }
 
-        //Only one object can be inside/ontop of another one, unless floor.
-        if(movableQuantifier == "all" &&
-            (relation == "ontop" || relation == "inside") &&
-            !(relatableLabels.length == 1 && relatableLabels[0] == "floor")) {
-          /* TODO: Add the form of destination object instead of "locations"*/
-          if(locationQuantifier == "all") {
-            throw "This is just silly."
-          } else if(locationQuantifier == "the") {
-            throw "There can only be one object ontop/inside another object."
-          } else if(relatableLabels.length < movableLabels.length) {
-            throw "There are not enough locations for this."
-          }
-        }
-
-        //Cannot put an object insde/ontop of every destination location if
-        //there are less objects to move than desination locations.
-        if(locationQuantifier == "all" &&
-            (relation == "ontop" || relation == "inside") &&
-            movableLabels.length < relatableLabels.length) {
-              /* TODO: Add form of object instead of "objects" */
-              throw "There are not enough objects for this."
-        }
-
-        //Build conjunction of disjunctions.
-        if(movableQuantifier == "all" && locationQuantifier == "any") {
-            var conjunction : Literal[][] = [];
-            //Build disjunction
-            for(var i = 0; i < movableLabels.length; i++) {
-              var disjunction : Literal[] = [];
-              var ml = movableLabels[i];
-              for(var j = 0; j < relatableLabels.length; j++) {
-                var rl = relatableLabels[j];
-                if(isPhysicallyCorrect(ml, rl, relation, state)) {
-                  var lit : Literal = {polarity: true, relation: relation,
-                    args: [ml, rl]};
-                  disjunction.push(lit);
-                }
-              }
-              //Build conjunction of disjunctions
-              if(disjunction.length > 0) conjunction.push(disjunction);
-            }
-            console.log(conjunction.map((literals) => literals.map(Interpreter.stringifyLiteral).sort().join(" | ")).sort().join(" & "));
-            //Convert to DNF before returning.
-            interpretation = conjunctionToDisjunction(conjunction);
-        } else if (movableQuantifier == "any" && locationQuantifier == "all"){
-          var conjunction: Literal[][] = [];
-          //Build disjunction
-          for (var j = 0; j < relatableLabels.length; j++) {
-            var disjunction: Literal[] = [];
-            var rl = relatableLabels[j];
-            for (var i = 0; i < movableLabels.length; i++) {
-              var ml = movableLabels[i];
-              if (isPhysicallyCorrect(ml, rl, relation, state)) {
-                var lit: Literal = {
-                  polarity: true, relation: relation,
-                  args: [ml, rl]
-                };
-                disjunction.push(lit);
-              }
-            }
-            //Build conjunction of disjunctions
-            if (disjunction.length > 0) conjunction.push(disjunction);
-          }
-          console.log(conjunction.map((literals) => literals.map(Interpreter.stringifyLiteral).sort().join(" | ")).sort().join(" & "));
-          //Convert to DNF before returning.
-          interpretation = conjunctionToDisjunction(conjunction);
-        } else if (movableQuantifier == "all") {
-          //Build conjunction formula.
-          var formula : Literal[] = [];
-          for (var i = movableLabels.length - 1; i >= 0; i--) {
-              var ml = movableLabels[i];
-              for (var j = relatableLabels.length - 1; j >= 0; j--) {
-                  var rl = relatableLabels[j];
-                  if (isPhysicallyCorrect(ml, rl, relation, state)){
-                      var lit : Literal = {polarity:true, relation: relation,
-                          args: [ml, rl]};
-                      //Add conjunction till formula.
-                      formula.push(lit);
-                  }
-              }
-          }
-          interpretation.push(formula);
-
-        /* TODO: Separate between 'the' and 'any' */
-
-        //Otherwise build disjunctions
-        } else {
-          for (var i = movableLabels.length - 1; i >= 0; i--) {
-              var ml = movableLabels[i];
-              if (relation == "holding") {
-                var lit : Literal = {polarity:true, relation: relation,
-                    args: [ml]};
+        //Moving every every object of some type
+        if(movableQuantifier == "all") {
+          //To any location of some type.
+          if(locationQuantifier == "any") {
+            var cnf : Literal[][] = [];
+            //Build conjunction of disjunctions and convert to DNF.
+            cnf = buildCNF(movableLabels, relatableLabels, false);
+            interpretation = conjunctionToDisjunction(cnf);
+          } else if(relation == "holding") {
+              //If only one such object exists, pick it up.
+              var ml = movableLabels[0];
+              var lit : Literal =
+                {polarity: true, relation: relation, args: [ml]};
                 interpretation.push([lit]);
+          } else {
+            //To a specific location or in relation to all objects of some type
+            var conj : Conjunction
+              = buildConjunction(movableLabels, relatableLabels);
+            interpretation.push(conj);
+          }
+        }
+        //Move any, or a specific object of some type
+        else if(movableQuantifier == "any" || movableQuantifier == "the") {
+          if(locationQuantifier == "all") {
+            //Build conjunction of disjunctions
+            var cnf: Literal[][] = [];
+            cnf = buildCNF(relatableLabels, movableLabels, true);
+            //Convert to DNF before returning.
+            interpretation = conjunctionToDisjunction(cnf);
+
+            //Build disjunction
+          } else {
+              if(relation == "holding") {
+                for(var i = 0; i < movableLabels.length; i++) {
+                  var ml = movableLabels[i];
+                  var lit : Literal =
+                      {polarity: true, relation: relation, args: [ml]};
+                  interpretation.push([lit]);
+                }
               } else {
-                  for (var j = relatableLabels.length - 1; j >= 0; j--) {
-                      var rl = relatableLabels[j];
-                      if (isPhysicallyCorrect(ml, rl, relation, state)){
-                        var lit : Literal = {polarity:true, relation: relation,
-                            args: [ml, rl]};
-                        //Add disjunction to formula.
-                        interpretation.push([lit]);
-                      }
-                  }
+                var dnf = buildDisjunction(movableLabels, relatableLabels);
+                interpretation = dnf;
               }
           }
         }
 
         if (interpretation.length == 0) {
-            throw "No interpretation was found";
-        } else if (movableQuantifier == "the" && interpretation.length > 1) {
-            /* TODO: Do something funny here. Throw exception and catch in
-             interpretCommand? Or just check the same condition after call
-             to getDNF in interpretCommand? */
-             //throw "ambiguous result";
-            return interpretation;
+            throw "No interpretation was found.";
         } else {
             return interpretation;
         }
@@ -534,14 +589,21 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
      * @param The state of the world
      * @returns A subset of param labels, such that they match the target
      */
-    function matchObject(lables : string[], target : Parser.Object, state: WorldState) : string[]{
+    function matchObject(
+      labels : string[], target : Parser.Object, state: WorldState) : string[]{
+
         var possibleTargets : string[] = [];
         var continueRecursivly = target.object != undefined;
 
 
 
         if(continueRecursivly){
-            var matchingObjs = matchObject(lables, target.object, state);
+            var rel  = target.location.relation;
+            var obj1 = target.object;
+            var obj2 = target.location.entity.object;
+            var quantifier = target.location.entity.quantifier;
+            //validateRelation(obj1, obj2, rel, quantifier);
+            var matchingObjs = matchObject(labels, target.object, state);
             for (var j = 0; j < matchingObjs.length; j++){
                 var matchingObj = matchingObjs[j];
                 if(checkRelation(matchingObj, target.location, state)){
@@ -549,39 +611,135 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                 }
             }
         } else { // Match object specifications
-          for (var i = lables.length - 1; i >= 0; i--) {
-            var label  = lables[i];
-            var object = label == "floor"? getFloor() : state.objects[label];
-            if ((target.color == null      || target.color == object.color) &&
-                (target.size  == null      || target.size  == object.size)  &&
-                (target.form  == "anyform" || target.form  == object.form)) {
-                possibleTargets.push(label);
-            }
-          }
+          return filterLabels(labels, target.size,
+                 target.color, target.form, state);
         }
-        return possibleTargets;
+        /* TODO: Gör om för att använda Parser.minimalDescription.*/
+        if(possibleTargets.length == 0) {
+          var f1 = (obj1.form == "anyform")? "object " : obj1.form + " ";
+          if(quantifier == "all") {
+            var q = quantifier;
+            var v = "are";
+          } else {
+            var q = "a";
+            var v = "is"
+          }
+          var description1 : string = Parser.minimalDescription(obj1, quantifier);
+          var description2 : string = Parser.minimalDescription(obj2, quantifier);
+          var prettyRel = Parser.prettifyRelation(rel);
+
+            throw "There " + v + " no " + description1 + " " + prettyRel + " " +
+                q + " " + description2 + "."
+        } else {
+            return possibleTargets;
+        }
+    }
+
+    /* Throws an error if the relation between object1 and object2 breaks any
+    physical laws. */
+    function validateRelation(object1 : Parser.Object, object2 : Parser.Object,
+        rel : string, quantifier : string) {
+
+          var f1 = object1.form;
+          var f2 = object2.form;
+          var s1 = object1.size;
+          var s2 = object2.size;
+          //console.log("validateRelation: " + s1 + " " + f1 + " " + rel + " " + quantifier + " " + s2 + " " + f2)
+          switch(rel) {
+            case "inside":
+              if(f2 != "box") {
+                throw "An object can only be inside of a box."
+              }
+              if ((f1 == "box" || f1 == "pyramid" || f1 == "plank") &&
+                  (s2 == s1 || s2 == "small"))
+                  throw "Boxes can only contain a " + f1 + " of smaller size than itself."
+              if (s2 == "small" && s1 == "large")
+                  throw "Small boxes cannot contain large objects."
+              if(quantifier == "all") {
+                var obj = (f1 == "anyform") ? "n object" : " " + f1;
+                throw "A" + obj + " cannot be inside of several boxes."
+              }
+              break;
+            case "ontop":
+              if (f2 == "box") {
+                  var tempF = Parser.getPlural(f1);
+                  tempF = tempF.charAt(0).toUpperCase() + tempF.slice(1);
+                  throw tempF +" cannot be on top of a box, only inside it."
+              }
+              if (s2 == "small" && s1 == "large") {
+                  var tempF1 = Parser.getPlural(f1);
+                  var tempF2 = Parser.getPlural(f2);
+                  throw "Small " + tempF2 + " cannot support large " + tempF1 + "."
+              }
+              if (f2 == "ball")
+                  throw "Balls cannot support other objects."
+              if (f1 == "ball" && f2 != "floor" && f2 != "box")
+                  throw "Balls must be in boxes or on the floor."
+              if (s1 == "small" && f1 == "box" && s2 == "small" &&
+                  (f2 == "brick" || f2 == "pyramid"))
+                  throw "Small boxes cannot be supported by small bricks or pyramids."
+              if (s1 == "large" && f1 == "box" &&
+                  s2 == "large" && f2 == "pyramid")
+                  throw "Large boxes cannot be supported by large pyramids."
+              if(quantifier == "all") {
+                throw "An object can only be directly on top of one other object."
+              }
+              break;
+          }
+    }
+
+    export function filterLabels(labels : string[], size: string,
+      color : string, form : string, state : WorldState) : string[]{
+
+      var filteredLabels: string[] = [];
+      for (var i = labels.length - 1; i >= 0; i--) {
+        var label = labels[i];
+        var object = label == "floor" ? getFloor() : state.objects[label];
+        // floor is not an "object"
+        if (label == "floor" && form == "anyform") continue;
+        if ((color == null || color == object.color) &&
+          (size == null || size == object.size) &&
+          (form == "anyform" || form == object.form)) {
+          filteredLabels.push(label);
+        }
+      }
+      return filteredLabels;
     }
 
     /**
      * Checks if object fullfils the location.
      */
-    function checkRelation(label : string, location : Parser.Location, state: WorldState) : boolean{
+    function checkRelation(
+      label : string, location : Parser.Location, state: WorldState) : boolean{
+
       if (label == "floor") return false;
       if (state.holding == label) return false;
       var stacks = state.stacks;
       var objectsToCheck : string[] = [];
+
+      /*If the quantifier is "all", there cannot be any object in this which
+      fullfils the relation. i.e if an object is supposed to be to the left of
+      all red objects there cannot be any red objects to the left of itself.*/
+      var objectsToClear : string[] = [];
       var stackIndex = findStack(label, state);
       var stack = stacks[stackIndex];
       var height = findHeight(label, stack);
+      var quantifier = location.entity.quantifier;
       switch(location.relation){
           case "leftof":
               for (var i = stackIndex + 1; i < stacks.length; i++) {
                 objectsToCheck = objectsToCheck.concat(stacks[i]);
               }
+              for (var i = 0; i <= stackIndex; i++) {
+                objectsToClear = objectsToClear.concat(stacks[i]);
+              }
               break;
           case "rightof":
               for (var i = 0; i < stackIndex; i++){
                 objectsToCheck = objectsToCheck.concat(stacks[i]);
+              }
+              for( var i = stackIndex; i < stacks.length; i++) {
+                objectsToClear = objectsToClear.concat(stacks[i]);
               }
               break;
           case "inside":
@@ -600,6 +758,9 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               for (var i = height + 1; i < stack.length; i++) {
                   objectsToCheck.push(stack[i]);
               }
+              for (var i = 0; i <= height; i++) {
+                  objectsToClear.push(stack[i]);
+              }
               break;
           case "beside":
               if(stackIndex > 0){
@@ -613,9 +774,18 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
               for (var i = 0; i < height; i++) {
                 objectsToCheck.push(stack[i]);
               }
+              for (var i = height; i < stack.length; i++) {
+                objectsToClear.push(stack[i]);
+              }
               break;
       }
-      return matchObject(objectsToCheck,location.entity.object,state).length>0;
+      if(quantifier == "all") {
+        return matchObject(objectsToClear, location.entity.object, state).length == 0 &&
+        matchObject(objectsToCheck, location.entity.object, state).length > 0;
+
+      } else {
+          return matchObject(objectsToCheck,location.entity.object,state).length>0;
+      }
     }
 
     // Finds which stack the object is in.
@@ -653,6 +823,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var s1 = object1.size;
         var s2 = object2.size;
         var result = label1 != label2;
+
         switch (relation) {
             case "inside":
                 if (f2 != "box")
@@ -691,5 +862,128 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                 break;
         }
         return result;
+    }
+
+    //Checks if a given parse if physically correct and filters impossible
+    //objects from movableLabels and relatableLabels if possible.
+    function validateParse(cmd : Parser.Command, movableLabels : string[],
+        relatableLabels : string[], state : WorldState) :
+          {movableLabels: string[], relatableLabels : string[]} {
+
+          var obj = (cmd.entity.object.object == null) ? cmd.entity.object : cmd.entity.object.object;
+          var destinationObject = findDestinationObject(cmd);
+          var movableQuantifier = cmd.entity.quantifier;
+          var locationQuantifier = cmd.location.entity.quantifier;
+          var relation = cmd.location.relation;
+
+          //These parses are not physically possible to perform in any world state.
+          if(relation == "inside" && destinationObject.form != "box") {
+            throw "Objects can only be inside of boxes."
+          }
+          if((movableQuantifier == "all" || locationQuantifier == "all") &&
+            ( (obj.form == destinationObject.form && obj.form != "anyform") ||
+            (obj.size == destinationObject.size && obj.size != null) ||
+            (obj.color == destinationObject.color && obj.color != null) )) {
+            throw "This is not physically possible."
+          }
+          //Only one object can be inside/ontop of another one, unless floor.
+          if(movableQuantifier == "all" &&
+              (relation == "ontop" || relation == "inside") &&
+              !(relatableLabels.length == 1 && relatableLabels[0] == "floor")) {
+            if(locationQuantifier == "all") {
+              throw "This is just silly, how would I do this?"
+            } else if(locationQuantifier == "the") {
+              var rel = "";
+              switch(relation) {
+                case "ontop":
+                  throw "There can only be one object on top of another object.";
+                case "inside":
+                  throw "A box can only fit one object."
+              }
+            } else if(relatableLabels.length < movableLabels.length) {
+              throw "There are not enough locations for this."
+            }
+          }
+          //These are dependent on the world state.
+          if(movableLabels.length == 0) {
+            throw "I could not find any matching object to move."
+          }
+
+          //Cannot put an object insde/ontop of every destination location if
+          //there are less objects to move than desination locations.
+          if(locationQuantifier == "all" &&
+              (relation == "ontop" || relation == "inside") &&
+              movableLabels.length < relatableLabels.length) {
+                throw "There are too few objects to move for this."
+          }
+          //Does the relation between the object to be moved and the destination
+          //object break any physical law?
+          validateRelation(obj, destinationObject, relation, locationQuantifier);
+
+          //Check for cases where movable or location quantifier is "all" and
+          //some objects is in both sets. Filter these objects if possible, or
+          //throw exception.
+          var mq = movableQuantifier;
+          var lq = locationQuantifier;
+          for(var i = 0; i < movableLabels.length; i++) {
+            var ml = movableLabels[i];
+            var objDef = getObjectDefinition(ml, state);
+            var rel = "";
+            switch(relation) {
+              case "leftof":
+                rel = "to the left of";
+                break;
+              case "rightof":
+                rel = "to the right of";
+                break;
+              case "inside" || "ontop" || "above" || "under":
+                rel = cmd.location.relation
+                break;
+            }
+            for(var j = 0; j < relatableLabels.length; j++) {
+              var rl = relatableLabels[j];
+              if(ml == rl && mq == "any" && lq == "all") {
+                movableLabels =
+                  movableLabels.filter((label) => label != ml);
+                if(movableLabels.length == 0) {
+                  throw "I cannot put the " + objDef.size + " " +
+                    objDef.color + " "+ objDef.form + " " + rel + " itself."
+                }
+              }
+              if(ml == rl && mq == "all" && lq =="any") {
+                relatableLabels = relatableLabels.filter((label) => label != rl);
+                if(relatableLabels.length == 0) {
+                  throw "I cannot put the " + objDef.size + " " +
+                    objDef.color + " "+ objDef.form + " " + rel + " itself."
+                }
+              }
+              if( (ml == rl) &&
+                  ( (mq == "the" && lq == "all") ||
+                    (mq == "all" && (lq == "the" || lq == "all")) )) {
+                      throw "I cannot put the " + objDef.size + " " +
+                        objDef.color + " "+ objDef.form + " " + rel + " itself."
+              }
+            }
+          }
+          return {movableLabels, relatableLabels}
+    }
+
+    //Returns the ObjectDefinition given a label identifier.
+    function getObjectDefinition(label : string, state : WorldState)
+        : ObjectDefinition {
+      var object = state.objects[label];
+      var objDef : ObjectDefinition =
+          {form: object.form, color: object.color, size: object.size}
+      return objDef;
+    }
+
+    //Must only be used for "move", NOT pickup or putdown
+    function findDestinationObject(cmd: Parser.Command) : Parser.Object {
+      if(cmd.location.entity.object.object == undefined) {
+        var endLocation  = cmd.location.entity.object;
+      } else {
+        var endLocation = cmd.location.entity.object.object;
+      }
+      return endLocation;
     }
 }

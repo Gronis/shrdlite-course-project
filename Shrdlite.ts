@@ -7,7 +7,8 @@ module Shrdlite {
 
     export function interactive(world : World) : void {
         function endlessLoop(utterance : string = "") : void {
-            var inputPrompt = "What can I do for you today? ";
+            if(!world.currentState.ambigousParses)
+              var inputPrompt = "What can I do for you today? ";
             var nextInput = () => world.readUserInput(inputPrompt, endlessLoop);
             if (utterance.trim()) {
                 var plan : string[] = splitStringIntoPlan(utterance);
@@ -52,17 +53,47 @@ module Shrdlite {
     export function parseUtteranceIntoPlan(world : World, utterance : string) : string[] {
         // Parsing
         world.printDebugInfo('Parsing utterance: "' + utterance + '"');
-        try {
-            var parses : Parser.ParseResult[] = Parser.parse(utterance);
-            world.printDebugInfo("Found " + parses.length + " parses");
-            parses.forEach((result, n) => {
-                world.printDebugInfo("  (" + n + ") " + Parser.stringify(result));
-            });
+        var firstWord = utterance.split(" ")[0];
+        var enteredNumber : number = Number(firstWord);
+        if(world.currentState.ambigousParses &&
+            !isNaN(enteredNumber)) {
+            if(enteredNumber <= world.currentState.ambigousParses.length &&
+            enteredNumber > 0) {
+              var parses : Parser.ParseResult[] = [];
+              parses.push(world.currentState.ambigousParses[enteredNumber - 1]);
+              world.printSystemOutput("Ok, you want me to " + Parser.intelligentStringify(parses[0]));
+            } else {
+              world.printSystemOutput("Sorry, but " + enteredNumber +
+                " was not one of the options I gave you. Please choose the number of the utterance you had in mind or give me new instructions.")
+              return;
+            }
+        } else {
+          try {
+              var parses : Parser.ParseResult[] = Parser.parse(utterance);
+              world.printDebugInfo("Found " + parses.length + " parses");
+              parses.forEach((result, n) => {
+                  world.printDebugInfo("  (" + n + ") " + Parser.stringify(result));
+              });
+          }
+          catch(err) {
+              world.printSystemOutput("Sorry I cannot understand this, please try again.")
+              //world.printError("Parsing error", err);
+              return;
+          }
+      }
+      world.currentState.ambigousParses = undefined;
+
+      if(parses.length > 1) {
+        world.printSystemOutput("This utterance is ambiguous, I found "
+          + parses.length + " different parses.")
+        for(var i = 0; i < parses.length; i++) {
+          world.printSystemOutput(" " + (i + 1) + ": " + Parser.intelligentStringify(parses[i]));
         }
-        catch(err) {
-            world.printError("Parsing error", err);
-            return;
-        }
+        //Försök nå dropdown. Gör funktion som ändrar den i svgworld.
+        world.printSystemOutput("Please choose the number of the utterance you had in mind or give me new instructions.");
+        world.currentState.ambigousParses = parses;
+        return;
+      }
 
         // Interpretation
         try {
@@ -80,7 +111,8 @@ module Shrdlite {
             }
         }
         catch(err) {
-            world.printError("Interpretation error", err);
+            //world.printError("Interpretation error", err);
+            world.printSystemOutput(err);
             return;
         }
 
@@ -102,7 +134,7 @@ module Shrdlite {
             }
         }
         catch(err) {
-            world.printError("Planning error", err);
+            world.printSystemOutput(err);
             return;
         }
 

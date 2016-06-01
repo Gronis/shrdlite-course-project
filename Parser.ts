@@ -69,7 +69,7 @@ module Parser {
         entity : Entity;
     }
 
-    /** 
+    /**
      * A user's description of an object in the world. A basic object
      * is described by its size ("small", "large", etc.), color
      * ("black", "white", etc.) and form ("object", "ball", "box",
@@ -82,7 +82,7 @@ module Parser {
      * support that. Instead, we include all possible fields and
      * assume that if `object?` and `location?` are set, the others
      * will be undefined and vice versa.
-     * 
+     *
      */
     export interface Object {
 	/** Recursive reference to an object using a relative clause. */
@@ -104,6 +104,80 @@ module Parser {
 
     function clone<T>(obj: T): T {
         return JSON.parse(JSON.stringify(obj));
+    }
+
+    export function intelligentStringify(parse : ParseResult) : string {
+      var cmd : Command = parse.parse;
+      if(cmd.entity == undefined) {
+        return cmd.command + " it " + cmd.location.relation + " " +
+          entityToString(cmd.location.entity);
+      }
+      var result = cmd.command + " " + entityToString(cmd.entity);
+      if(cmd.location == undefined)
+        return result;
+      else {
+        return result + " " + prettifyRelation(cmd.location.relation) + " " +
+            entityToString(cmd.location.entity);
+      }
+
+      function entityToString(entity : Entity) : string {
+        var obj = entity.object.object;
+        var objQuantifier = entity.quantifier;
+
+        if(entity.object.object == null) {
+          return objQuantifier + " " +
+              minimalDescription(entity.object, objQuantifier);
+        } else {
+          var relation = prettifyRelation(entity.object.location.relation);
+          var nextEntity : Entity = entity.object.location.entity;
+          return objQuantifier + " " + minimalDescription(obj, objQuantifier) +
+            " that is " + relation + " " + entityToString(nextEntity);
+        }
+      }
+    }
+
+    export function getPlural(form : string) : string {
+      switch(form) {
+        case "anyform":
+          return "objects"
+        case "box":
+          return "boxes";
+        default:
+          return form + "s";
+      }
+    }
+
+    export function prettifyRelation(relation : string) : string {
+          switch(relation) {
+            case "inside":
+              return "inside of"
+            case "ontop":
+              return "on top of"
+            case "leftof":
+              return "to the left of"
+            case "rightof":
+              return "to the right of"
+            case "under":
+            case "above":
+            case "beside":
+              return relation;
+            default:
+              console.log(relation)
+              throw "I should not be here..."
+          }
+        }
+
+    //mininmalInfo in planner takes label, need one that only takes object
+    export function minimalDescription(object : Object, quantifier : string) : string {
+      var size : string = (object.size == undefined)? "" : object.size + " ";
+      var color : string = (object.color == undefined)? "" : object.color + " ";
+
+      if(quantifier == "all")
+        var form : string = getPlural(object.form);
+      else
+        var form : string = (object.form == "anyform")? "object" : object.form;
+
+      return size + color + form;
     }
 
 }
@@ -134,5 +208,3 @@ if (typeof require !== 'undefined') {
     var nearley = require('./lib/nearley.js');
     var grammar = require('./grammar.js');
 }
-
-

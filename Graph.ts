@@ -106,7 +106,7 @@ function aStarSearch<Node> (
             }
         }
         if ((tNow - startTime) > (timeout * 1000) || queue.isEmpty()) {
-          throw("I am too dumb to figure this one out.")
+          throw("Sorry I am too dumb to figure this one out, I need more time.")
         }
         current = queue.dequeue();
     }
