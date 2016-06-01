@@ -115,10 +115,13 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
      * @returns A list of list of Literal, representing a formula in disjunctive normal form (disjunction of conjunctions). See the dummy interpetation returned in the code for an example, which means ontop(a,floor) AND holding(b).
      */
     function interpretCommand(cmd : Parser.Command, state : WorldState) : DNFFormula {
-        // A label is a string id referencing an object in the world
+        // A label is a string id referencing an object in the world.
         var labels = Array.prototype.concat.apply(["floor"], state.stacks);
+        // Labels representing all movable labels.
         var movableLabels: string[] = [];
+        // Labels representing all possible end-locations for the movable object.
         var relatableLabels: string[] = [];
+
         var command = cmd.command;
         var putdown = cmd.entity == undefined || preRelation == "";
         var pickup = cmd.location == undefined;
@@ -138,6 +141,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
         var movableQuantifier : string = putdown? "any": cmd.entity.quantifier;
         var locationQuantifier: string = pickup ? undefined : wasAmbigous ? cmd.entity.quantifier : cmd.location.entity.quantifier;
 
+        // Function that finds all candidate labels to be moved.
         var getMovingLables = function() {
             var wasAmbigous = preRelation != null;
             if (wasAmbigous) {
@@ -157,29 +161,31 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
                 return matchObject(labels, cmd.entity.object, state);
             }
         };
+        // Function that finds all candidate labels for the object to be
+        // moved to.
         var getRelatedLabels = function() {
-            console.log(preRelation);
-            console.log(preRelatableLabels);
+
             var wasAmbigous = preRelation != null;
             if (wasAmbigous) {
-              if (preMovableLabels.length <=1 || preMovableQuantifier=="any") {
-                preRelatableQuantifier = movableQuantifier;
-                var ls = matchObject(preRelatableLabels,cmd.entity.object,state);
-                if (ls.length == 0) {
-                  throw "That was not one of the options I asked for. " +
-                        preMessage;
+                if (preMovableLabels.length <=1 || preMovableQuantifier=="any") {
+                    preRelatableQuantifier = movableQuantifier;
+                    var ls = matchObject(preRelatableLabels,cmd.entity.object,state);
+                    if (ls.length == 0) {
+                      throw "That was not one of the options I asked for. " +
+                            preMessage;
+                    }
+                    return ls;
+                } else {
+                    return preRelatableLabels;
                 }
-                return ls;
-              } else {
-                return preRelatableLabels;
-              }
             } else {
                 preRelatableQuantifier = locationQuantifier;
                 return matchObject(labels, cmd.location.entity.object, state);
             }
         };
 
-        if (state.holding != null) labels.push(state.holding);
+        if (state.holding != null)
+            labels.push(state.holding);
 
         if(putdown){
             movableLabels = [state.holding];
@@ -209,12 +215,8 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             }
         }
 
-        console.log("pre ml: " + JSON.stringify(preMovableLabels));
-        console.log("pre rl: " + JSON.stringify(preRelatableLabels));
         preMovableLabels = movableLabels;
         preRelatableLabels = relatableLabels;
-        console.log("ml : " + JSON.stringify(movableLabels));
-        console.log("rl : " + JSON.stringify(relatableLabels));
 
         // If ambigous object throw error message
         if (movableLabels.length > 1 || relatableLabels.length > 1) {
@@ -267,7 +269,6 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
     /* Builds a clarification message for the user. */
     function clarificationMessage(labels: string[], state: WorldState): string {
         var message = "Do you mean the ";
-        // TODO: Difference between messages
         var difference = "";
         for (var labelIndex = 0; labelIndex < labels.length; labelIndex++) {
             var object: Parser.Object = state.objects[labels[labelIndex]];
@@ -298,9 +299,6 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             color: true,
             form: true
         }
-
-        /* Greedy, tries the size as unique and finds out if uniquely
-         * identifiable. Else proceedes by adding the next one... */
 
         var difference = "";
         for (var label of labels) {
@@ -596,19 +594,16 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
      * @returns A subset of param labels, such that they match the target
      */
     function matchObject(
-      labels : string[], target : Parser.Object, state: WorldState) : string[]{
+        labels : string[], target : Parser.Object, state: WorldState) : string[]{
 
         var possibleTargets : string[] = [];
         var continueRecursivly = target.object != undefined;
-
-
 
         if(continueRecursivly){
             var rel  = target.location.relation;
             var obj1 = target.object;
             var obj2 = target.location.entity.object;
             var quantifier = target.location.entity.quantifier;
-            //validateRelation(obj1, obj2, rel, quantifier);
             var matchingObjs = matchObject(labels, target.object, state);
             for (var j = 0; j < matchingObjs.length; j++){
                 var matchingObj = matchingObjs[j];
@@ -620,7 +615,6 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
           return filterLabels(labels, target.size,
                  target.color, target.form, state);
         }
-        /* TODO: Gör om för att använda Parser.minimalDescription.*/
         if(possibleTargets.length == 0) {
           var f1 = (obj1.form == "anyform")? "object " : obj1.form + " ";
           if(quantifier == "all") {
@@ -650,7 +644,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
           var f2 = object2.form;
           var s1 = object1.size;
           var s2 = object2.size;
-          console.log("validateRelation: " + s1 + " " + f1 + " " + rel + " " + quantifier + " " + s2 + " " + f2)
+
           switch(rel) {
             case "inside":
               if(f2 != "box") {
@@ -802,7 +796,7 @@ Top-level function for the Interpreter. It calls `interpretCommand` for each pos
             if (stack[j] == label) return i;
           }
         }
-        //console.log("Cannot find stack of label: " + label + " stacks: " + JSON.stringify(state.stacks));
+
         return null;
     }
 
