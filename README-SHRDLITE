@@ -1,6 +1,0 @@
-Graph.ts:
-Not much has changed since the aStarSearch submission. We have added our own
-implementation of a node. Unfortunately we werent able to compare two nodes by
-== so in our maps we had to add JSON.stringify.
-
-Interpreter.ts:
